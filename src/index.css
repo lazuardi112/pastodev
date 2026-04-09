@@ -6,26 +6,31 @@
 
 @layer base {
   :root {
-    --background: 0 0% 99%;
-    --foreground: 210 20% 10%;
+    /* Base Colors: Blue-Grey (Slate) and White */
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
-    --card-foreground: 210 20% 10%;
+    --card-foreground: 222 47% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 210 20% 10%;
+    --popover-foreground: 222 47% 11%;
 
+    /* Primary: #00acc2 (Teal) */
     --primary: 187 100% 38%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 187 30% 95%;
-    --secondary-foreground: 187 100% 25%;
+    /* Secondary: Blue-Grey Light */
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
 
-    --muted: 210 20% 96%;
-    --muted-foreground: 210 10% 45%;
+    /* Muted: Blue-Grey Muted */
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
 
-    --accent: 187 30% 95%;
-    --accent-foreground: 187 100% 25%;
+    /* Accent: Blue-Grey Accent */
+    --accent: 210 40% 94%;
+    --accent-foreground: 222 47% 11%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
@@ -36,18 +41,19 @@
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 214 20% 92%;
-    --input: 214 20% 92%;
+    /* Border: Blue-Grey Border */
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
     --ring: 187 100% 38%;
     --radius: 0.75rem;
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-background: 210 40% 98%;
+    --sidebar-foreground: 222 47% 11%;
     --sidebar-primary: 187 100% 38%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.3% 26.1%;
-    --sidebar-border: 220 13% 91%;
+    --sidebar-accent: 210 40% 94%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 214 32% 91%;
     --sidebar-ring: 187 100% 38%;
   }
 }
@@ -61,7 +67,6 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
 
-  /* Smooth scrolling */
   html {
     scroll-behavior: smooth;
   }
@@ -122,7 +127,6 @@
     @apply animate-shimmer;
   }
 
-  /* Staggered animation delays */
   .stagger-1 { animation-delay: 0.1s; }
   .stagger-2 { animation-delay: 0.2s; }
   .stagger-3 { animation-delay: 0.3s; }
@@ -130,7 +134,6 @@
   .stagger-5 { animation-delay: 0.5s; }
   .stagger-6 { animation-delay: 0.6s; }
 
-  /* Fade in animations */
   .animate-fade-in {
     animation: fadeIn 0.6s ease-out forwards;
   }
@@ -147,7 +150,6 @@
     animation: slideInRight 0.6s ease-out forwards;
   }
 
-  /* Initial states for animations */
   .opacity-0 {
     opacity: 0;
   }

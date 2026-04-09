@@ -20,6 +20,8 @@ import customOrderRoutes from './routes/customOrders.js';
 
 const app = express();
 
+const NODE_ENV = process.env.NODE_ENV || 'development';
+
 // Ensure upload directory exists
 const uploadDir = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadDir)) {
@@ -30,20 +32,31 @@ if (!fs.existsSync(uploadDir)) {
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   'http://localhost:5173',
-  'http://localhost:8081'
+  'http://localhost:8081',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:8081'
 ].filter(Boolean);
 
 app.use(cors({
   origin: function (origin, callback) {
     // allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+
+    // In development, allow all for easier testing
+    if (NODE_ENV === 'development') {
+      return callback(null, true);
+    }
+
+    if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
+      console.warn(`[CORS] Rejected origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
 }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -53,7 +66,7 @@ app.use('/uploads', express.static(uploadDir));
 
 // Request logging middleware
 app.use((req, res, next) => {
-  if (process.env.NODE_ENV === 'development') {
+  if (NODE_ENV === 'development') {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
   }
   next();
@@ -65,7 +78,7 @@ app.get('/api/health', (req, res) => {
     success: true,
     message: 'PastoDEV Marketplace API is running',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
+    environment: NODE_ENV
   });
 });
 
@@ -91,12 +104,14 @@ app.use((err, req, res, next) => {
   const statusCode = err.statusCode || 500;
   const message = err.message || 'Terjadi kesalahan pada server';
 
-  console.error(`[ERROR] ${req.method} ${req.path}:`, err);
+  if (NODE_ENV === 'development') {
+    console.error(`[ERROR] ${req.method} ${req.path}:`, err);
+  }
 
   res.status(statusCode).json({
     success: false,
     message: message,
-    error: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    error: NODE_ENV === 'development' ? err.stack : undefined
   });
 });
 
@@ -105,7 +120,7 @@ const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
   console.log(`🚀 PastoDEV Marketplace API running on port ${PORT}`);
   console.log(`📝 Health check: http://localhost:${PORT}/api/health`);
-  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🌍 Environment: ${NODE_ENV}`);
 });
 
 export default app;

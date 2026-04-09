@@ -3,14 +3,13 @@ import pool from '../config/database.js';
 export const User = {
   create: async (data) => {
     const { name, email, password, phone, google_id } = data;
-    const [result] = await pool.execute(
-      'INSERT INTO users (name, email, password, phone, google_id, role) VALUES (?, ?, ?, ?, ?, ?)',
+    await pool.query(
+      'INSERT INTO users (name, email, password, phone, google_id, role) VALUES ($1, $2, $3, $4, $5, $6)',
       [name, email, password, phone || null, google_id || null, 'user']
     );
-    const insertId = result.insertId;
-    const [rows] = await pool.execute(
-      'SELECT id, name, email, phone, balance, role, is_active, created_at FROM users WHERE id = ?',
-      [insertId]
+    const { rows } = await pool.query(
+      'SELECT id, name, email, phone, balance, role, is_active, created_at FROM users WHERE email = $1',
+      [email]
     );
     return rows[0];
   },
@@ -78,7 +77,7 @@ export const User = {
 
   updateBalance: async (id, amount) => {
     await pool.query(
-      'UPDATE users SET balance = balance + ?, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+      'UPDATE users SET balance = balance + $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
       [amount, id]
     );
     return await User.getBalance(id);

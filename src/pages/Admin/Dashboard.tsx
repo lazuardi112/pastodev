@@ -39,15 +39,15 @@ export const AdminDashboard = () => {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+      <h1 className="text-3xl font-bold text-slate-900">Admin Dashboard</h1>
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Total Users</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">{stats?.total_users || 0}</p>
+              <p className="text-sm text-slate-600">Total Users</p>
+              <p className="text-3xl font-bold text-slate-900 mt-2">{stats?.total_users || 0}</p>
             </div>
             <div className="text-teal-600 text-4xl">👥</div>
           </div>
@@ -56,17 +56,17 @@ export const AdminDashboard = () => {
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Total Transactions</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">{stats?.total_transactions || 0}</p>
+              <p className="text-sm text-slate-600">Total Transactions</p>
+              <p className="text-3xl font-bold text-slate-900 mt-2">{stats?.total_transactions || 0}</p>
             </div>
-            <div className="text-blue-600 text-4xl">💳</div>
+            <div className="text-primary text-4xl">💳</div>
           </div>
         </div>
 
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Successful</p>
+              <p className="text-sm text-slate-600">Successful</p>
               <p className="text-3xl font-bold text-green-600 mt-2">{stats?.success_transactions || 0}</p>
             </div>
             <div className="text-green-600 text-4xl">✓</div>
@@ -76,8 +76,8 @@ export const AdminDashboard = () => {
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Total Revenue</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">
+              <p className="text-sm text-slate-600">Total Revenue</p>
+              <p className="text-3xl font-bold text-slate-900 mt-2">
                 Rp{(stats?.total_revenue || 0).toLocaleString('id-ID')}
               </p>
             </div>
@@ -88,7 +88,7 @@ export const AdminDashboard = () => {
 
       {/* Chart */}
       <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Transaction Overview</h2>
+        <h2 className="text-xl font-bold text-slate-900 mb-4">Transaction Overview</h2>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" />
@@ -109,7 +109,7 @@ export const AdminDashboard = () => {
           <p className="text-sm mt-2 opacity-90">Add, edit, or delete products</p>
         </a>
 
-        <a href="/admin/vouchers" className="bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg shadow p-6 hover:shadow-lg transition">
+        <a href="/admin/vouchers" className="bg-gradient-to-r from-primary to-primary text-white rounded-lg shadow p-6 hover:shadow-lg transition">
           <h3 className="text-lg font-bold">Manage Vouchers</h3>
           <p className="text-sm mt-2 opacity-90">Create and manage discount codes</p>
         </a>

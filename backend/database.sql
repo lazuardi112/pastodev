@@ -135,7 +135,6 @@ CREATE TABLE IF NOT EXISTS vouchers (
     max_discount DECIMAL(15,2),
     usage_limit INT,
     used_count INT DEFAULT 0,
-    -- Use DATETIME NULL DEFAULT NULL to avoid TIMESTAMP default/zero-date issues
     valid_from DATETIME DEFAULT NULL,
     valid_until DATETIME DEFAULT NULL,
     is_active BOOLEAN DEFAULT true,
@@ -227,7 +226,7 @@ INSERT IGNORE INTO users (name, email, password, role, is_active)
 VALUES (
     'Admin PastoDEV',
     'admin@pastopup.id',
-    '$2a$10$Fjibo2bp219vaxZhMKHIW.1OvSJknmuU6aXpyEoEaXauU6JYDsqxu',
+    '$2a$10$PCQKVBw2C10xosV.rkZcUOsPeNdLeKLF4d2Ik2v5DDr7PkVPaVSnK',
     'admin',
     true
 );
