@@ -90,7 +90,7 @@ const Admin = () => {
           const data = statsRes.data;
           setStats([
             { label: "Total Transaksi", value: String(data.total_transactions || 0), icon: TrendingUp, trend: "+12%", color: "from-sky-500/20 to-sky-500/5" },
-            { label: "Pendapatan", value: formatCurrency(data.total_revenue || 0), icon: DollarSign, trend: "+8%", color: "from-blue-500/20 to-blue-500/5" },
+            { label: "Pendapatan", value: formatCurrency(data.total_revenue || 0), icon: DollarSign, trend: "+8%", color: "from-primary/20 to-primary/5" },
             { label: "Pengguna", value: String(data.total_users || 0), icon: Users, trend: "+5", color: "from-slate-500/20 to-slate-500/5" },
             { label: "Sukses Transaksi", value: String(data.success_transactions || 0), icon: CheckCircle, trend: "+90%", color: "from-emerald-500/20 to-emerald-500/5" },
           ]);
@@ -271,26 +271,26 @@ const Admin = () => {
 
   return (
     <Layout hideShell>
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-gray-50">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
         <div className="container mx-auto px-4 py-8 max-w-7xl">
           {/* Modern Header */}
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 mb-8">
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-8 mb-8">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <div className="w-16 h-16 bg-gradient-to-br from-primary to-primary rounded-2xl flex items-center justify-center shadow-lg">
                   <Shield className="h-8 w-8 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-                  <p className="text-gray-600 mt-1">Kelola marketplace dengan kontrol penuh</p>
+                  <h1 className="text-3xl font-bold text-slate-900">Admin Dashboard</h1>
+                  <p className="text-slate-600 mt-1">Kelola marketplace dengan kontrol penuh</p>
                 </div>
               </div>
               <div className="flex items-center gap-4">
                 <div className="text-right">
-                  <p className="text-sm text-gray-500">Selamat datang</p>
-                  <p className="font-semibold text-gray-900">{user?.name || 'Admin'}</p>
+                  <p className="text-sm text-slate-500">Selamat datang</p>
+                  <p className="font-semibold text-slate-900">{user?.name || 'Admin'}</p>
                 </div>
-                <Button variant="outline" className="rounded-xl border-gray-300 hover:bg-gray-50">
+                <Button variant="outline" className="rounded-xl border-slate-300 hover:bg-slate-50">
                   <Settings className="h-4 w-4 mr-2" />
                   Pengaturan
                 </Button>
@@ -313,24 +313,24 @@ const Admin = () => {
         )}
 
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="bg-white border border-gray-200 rounded-xl p-1 shadow-sm">
-            <TabsTrigger value="dashboard" className="rounded-lg px-6 py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">Dashboard</TabsTrigger>
-            <TabsTrigger value="products" className="rounded-lg px-6 py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">Produk</TabsTrigger>
-            <TabsTrigger value="categories" className="rounded-lg px-6 py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">Kategori</TabsTrigger>
-            <TabsTrigger value="orders" className="rounded-lg px-6 py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">Pesanan</TabsTrigger>
-            <TabsTrigger value="users" className="rounded-lg px-6 py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">Pengguna</TabsTrigger>
-            <TabsTrigger value="vouchers" className="rounded-lg px-6 py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">Voucher</TabsTrigger>
-            <TabsTrigger value="tickets" className="rounded-lg px-6 py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">Custom Order</TabsTrigger>
-            <TabsTrigger value="scripts" className="rounded-lg px-6 py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">Script Custom</TabsTrigger>
-            <TabsTrigger value="settings" className="rounded-lg px-6 py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">Pengaturan</TabsTrigger>
+          <TabsList className="bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
+            <TabsTrigger value="dashboard" className="rounded-lg px-6 py-2 data-[state=active]:bg-primary data-[state=active]:text-white">Dashboard</TabsTrigger>
+            <TabsTrigger value="products" className="rounded-lg px-6 py-2 data-[state=active]:bg-primary data-[state=active]:text-white">Produk</TabsTrigger>
+            <TabsTrigger value="categories" className="rounded-lg px-6 py-2 data-[state=active]:bg-primary data-[state=active]:text-white">Kategori</TabsTrigger>
+            <TabsTrigger value="orders" className="rounded-lg px-6 py-2 data-[state=active]:bg-primary data-[state=active]:text-white">Pesanan</TabsTrigger>
+            <TabsTrigger value="users" className="rounded-lg px-6 py-2 data-[state=active]:bg-primary data-[state=active]:text-white">Pengguna</TabsTrigger>
+            <TabsTrigger value="vouchers" className="rounded-lg px-6 py-2 data-[state=active]:bg-primary data-[state=active]:text-white">Voucher</TabsTrigger>
+            <TabsTrigger value="tickets" className="rounded-lg px-6 py-2 data-[state=active]:bg-primary data-[state=active]:text-white">Custom Order</TabsTrigger>
+            <TabsTrigger value="scripts" className="rounded-lg px-6 py-2 data-[state=active]:bg-primary data-[state=active]:text-white">Script Custom</TabsTrigger>
+            <TabsTrigger value="settings" className="rounded-lg px-6 py-2 data-[state=active]:bg-primary data-[state=active]:text-white">Pengaturan</TabsTrigger>
           </TabsList>
 
             <TabsContent value="dashboard" className="space-y-6">
               {loading ? (
                 <div className="flex items-center justify-center py-16">
                   <div className="flex items-center gap-3">
-                    <Loader className="h-6 w-6 animate-spin text-blue-500" />
-                    <p className="text-gray-600">Memuat data admin...</p>
+                    <Loader className="h-6 w-6 animate-spin text-primary" />
+                    <p className="text-slate-600">Memuat data admin...</p>
                   </div>
                 </div>
               ) : (
@@ -338,18 +338,18 @@ const Admin = () => {
                   {/* Stats Cards */}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     {stats.map((stat, i) => (
-                      <div key={stat.label} className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow">
+                      <div key={stat.label} className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm font-medium text-gray-600">{stat.label}</p>
-                            <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
+                            <p className="text-sm font-medium text-slate-600">{stat.label}</p>
+                            <p className="text-2xl font-bold text-slate-900 mt-1">{stat.value}</p>
                             <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
                               <ArrowUpRight className="h-3 w-3" />
                               {stat.trend}
                             </p>
                           </div>
-                          <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                            <stat.icon className="h-6 w-6 text-blue-600" />
+                          <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center">
+                            <stat.icon className="h-6 w-6 text-primary" />
                           </div>
                         </div>
                       </div>
@@ -357,23 +357,23 @@ const Admin = () => {
                   </div>
 
                   {/* Quick Actions */}
-                  <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Aksi Cepat</h3>
+                  <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                    <h3 className="text-lg font-semibold text-slate-900 mb-4">Aksi Cepat</h3>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <Button onClick={() => openProductModal()} variant="outline" className="h-20 flex flex-col items-center gap-2 border-gray-300 hover:bg-blue-50 hover:border-blue-300">
-                        <Plus className="h-6 w-6 text-blue-600" />
+                      <Button onClick={() => openProductModal()} variant="outline" className="h-20 flex flex-col items-center gap-2 border-slate-300 hover:bg-slate-50 hover:border-slate-300">
+                        <Plus className="h-6 w-6 text-primary" />
                         <span className="text-sm font-medium">Tambah Produk</span>
                       </Button>
-                      <Button onClick={() => openCategoryModal()} variant="outline" className="h-20 flex flex-col items-center gap-2 border-gray-300 hover:bg-blue-50 hover:border-blue-300">
-                        <Tag className="h-6 w-6 text-blue-600" />
+                      <Button onClick={() => openCategoryModal()} variant="outline" className="h-20 flex flex-col items-center gap-2 border-slate-300 hover:bg-slate-50 hover:border-slate-300">
+                        <Tag className="h-6 w-6 text-primary" />
                         <span className="text-sm font-medium">Buat Kategori</span>
                       </Button>
-                      <Button variant="outline" className="h-20 flex flex-col items-center gap-2 border-gray-300 hover:bg-blue-50 hover:border-blue-300">
-                        <Sparkles className="h-6 w-6 text-blue-600" />
+                      <Button variant="outline" className="h-20 flex flex-col items-center gap-2 border-slate-300 hover:bg-slate-50 hover:border-slate-300">
+                        <Sparkles className="h-6 w-6 text-primary" />
                         <span className="text-sm font-medium">Buat Voucher</span>
                       </Button>
-                      <Button variant="outline" className="h-20 flex flex-col items-center gap-2 border-gray-300 hover:bg-blue-50 hover:border-blue-300">
-                        <Download className="h-6 w-6 text-blue-600" />
+                      <Button variant="outline" className="h-20 flex flex-col items-center gap-2 border-slate-300 hover:bg-slate-50 hover:border-slate-300">
+                        <Download className="h-6 w-6 text-primary" />
                         <span className="text-sm font-medium">Export Data</span>
                       </Button>
                     </div>
@@ -381,53 +381,53 @@ const Admin = () => {
 
                   {/* Recent Activity */}
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                        <Activity className="h-5 w-5 text-blue-600" />
+                    <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                      <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                        <Activity className="h-5 w-5 text-primary" />
                         Aktivitas Terbaru
                       </h3>
                       <div className="space-y-4">
                         {[
-                          { type: 'order', message: 'Pesanan baru dari John Doe', time: '2 menit yang lalu', icon: ShoppingBag, color: 'text-blue-600' },
+                          { type: 'order', message: 'Pesanan baru dari John Doe', time: '2 menit yang lalu', icon: ShoppingBag, color: 'text-primary' },
                           { type: 'user', message: 'Pengguna baru mendaftar: Jane Smith', time: '15 menit yang lalu', icon: UserCheck, color: 'text-green-600' },
                           { type: 'product', message: 'Produk "Mobile POS" berhasil dijual', time: '1 jam yang lalu', icon: Package, color: 'text-purple-600' },
                           { type: 'voucher', message: 'Voucher DISKON10 digunakan', time: '2 jam yang lalu', icon: Sparkles, color: 'text-orange-600' },
                         ].map((activity, i) => (
-                          <div key={i} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                            <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                          <div key={i} className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors">
+                            <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
                               <activity.icon className={`h-4 w-4 ${activity.color}`} />
                             </div>
                             <div className="flex-1">
-                              <p className="text-sm font-medium text-gray-900">{activity.message}</p>
-                              <p className="text-xs text-gray-500">{activity.time}</p>
+                              <p className="text-sm font-medium text-slate-900">{activity.message}</p>
+                              <p className="text-xs text-slate-500">{activity.time}</p>
                             </div>
                           </div>
                         ))}
                       </div>
                     </div>
 
-                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                        <BarChart3 className="h-5 w-5 text-blue-600" />
+                    <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                      <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                        <BarChart3 className="h-5 w-5 text-primary" />
                         Ringkasan Hari Ini
                       </h3>
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">Penjualan</span>
-                          <span className="font-semibold text-gray-900">Rp 2.5M</span>
+                          <span className="text-sm text-slate-600">Penjualan</span>
+                          <span className="font-semibold text-slate-900">Rp 2.5M</span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">Pengguna Baru</span>
+                          <span className="text-sm text-slate-600">Pengguna Baru</span>
                           <span className="font-semibold text-green-600">+12</span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">Order Custom</span>
+                          <span className="text-sm text-slate-600">Order Custom</span>
                           <span className="font-semibold text-purple-600">3</span>
                         </div>
-                        <div className="pt-2 border-t border-gray-200">
+                        <div className="pt-2 border-t border-slate-200">
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-gray-900">Total Revenue</span>
-                            <span className="font-bold text-lg text-blue-600">Rp 4.2M</span>
+                            <span className="text-sm font-medium text-slate-900">Total Revenue</span>
+                            <span className="font-bold text-lg text-primary">Rp 4.2M</span>
                           </div>
                         </div>
                       </div>
@@ -441,21 +441,21 @@ const Admin = () => {
             <div className="space-y-6">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h2 className="text-xl font-semibold text-gray-900">Kelola Produk</h2>
-                  <p className="text-sm text-gray-600">Tambah, edit, dan hapus produk marketplace dengan cepat.</p>
+                  <h2 className="text-xl font-semibold text-slate-900">Kelola Produk</h2>
+                  <p className="text-sm text-slate-600">Tambah, edit, dan hapus produk marketplace dengan cepat.</p>
                 </div>
-                <Button onClick={() => openProductModal()} className="rounded-xl bg-blue-600 text-white hover:bg-blue-700">
+                <Button onClick={() => openProductModal()} className="rounded-xl bg-primary text-white hover:bg-primary">
                   <Plus className="h-4 w-4" />
                   <span>Tambah Produk</span>
                 </Button>
               </div>
 
               <Dialog open={productModalOpen} onOpenChange={setProductModalOpen}>
-                <DialogContent className="max-w-3xl rounded-3xl bg-white border border-gray-200">
+                <DialogContent className="max-w-3xl rounded-3xl bg-white border border-slate-200">
                   <div className="space-y-6">
                     <div className="flex items-center justify-between">
                       <DialogHeader>
-                        <DialogTitle className="text-lg font-semibold text-gray-900">
+                        <DialogTitle className="text-lg font-semibold text-slate-900">
                           {editingProduct ? 'Edit Produk' : 'Tambah Produk Baru'}
                         </DialogTitle>
                       </DialogHeader>
@@ -509,17 +509,17 @@ const Admin = () => {
                       </div>
                       <div className="flex justify-end gap-3 pt-4">
                         <Button variant="outline" onClick={() => setProductModalOpen(false)}>Batal</Button>
-                        <Button type="submit" className="bg-blue-600 text-white hover:bg-blue-700">Simpan</Button>
+                        <Button type="submit" className="bg-primary text-white hover:bg-primary">Simpan</Button>
                       </div>
                     </form>
                   </div>
                 </DialogContent>
               </Dialog>
 
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 text-sm">
-                    <thead className="bg-gray-50 text-gray-700">
+                  <table className="min-w-full divide-y divide-slate-200 text-sm">
+                    <thead className="bg-slate-50 text-slate-700">
                       <tr>
                         <th className="px-6 py-4 text-left font-medium">Nama Produk</th>
                         <th className="px-6 py-4 text-left font-medium">Kategori</th>
@@ -528,24 +528,24 @@ const Admin = () => {
                         <th className="px-6 py-4 text-right font-medium">Aksi</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200 bg-white">
+                    <tbody className="divide-y divide-slate-200 bg-white">
                       {products.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="px-6 py-12 text-center text-gray-500">Tidak ada produk tersedia</td>
+                          <td colSpan={5} className="px-6 py-12 text-center text-slate-500">Tidak ada produk tersedia</td>
                         </tr>
                       ) : (
                         products.map((product) => (
-                          <tr key={product.id} className="hover:bg-gray-50 transition-colors">
-                            <td className="px-6 py-4 text-gray-900 font-medium">{product.name}</td>
-                            <td className="px-6 py-4 text-gray-600">{product.category_name || product.categoryName || 'Tidak tersedia'}</td>
-                            <td className="px-6 py-4 text-gray-900 font-medium">{formatCurrency(product.price)}</td>
+                          <tr key={product.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="px-6 py-4 text-slate-900 font-medium">{product.name}</td>
+                            <td className="px-6 py-4 text-slate-600">{product.category_name || product.categoryName || 'Tidak tersedia'}</td>
+                            <td className="px-6 py-4 text-slate-900 font-medium">{formatCurrency(product.price)}</td>
                             <td className="px-6 py-4">
-                              <Badge variant={product.is_active ? 'default' : 'secondary'} className={`rounded-full text-xs px-3 py-1 ${product.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                              <Badge variant={product.is_active ? 'default' : 'secondary'} className={`rounded-full text-xs px-3 py-1 ${product.is_active ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-800'}`}>
                                 {product.is_active ? 'Aktif' : 'Tidak Aktif'}
                               </Badge>
                             </td>
                             <td className="px-6 py-4 text-right space-x-2">
-                              <Button variant="outline" size="sm" onClick={() => openProductModal(product)} className="border-gray-300 hover:bg-blue-50 hover:border-blue-300">Edit</Button>
+                              <Button variant="outline" size="sm" onClick={() => openProductModal(product)} className="border-slate-300 hover:bg-slate-50 hover:border-slate-300">Edit</Button>
                               <Button variant="outline" size="sm" className="border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400" onClick={() => handleProductDelete(product.id)}>Hapus</Button>
                             </td>
                           </tr>
@@ -562,21 +562,21 @@ const Admin = () => {
             <div className="space-y-6">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h2 className="text-xl font-semibold text-gray-900">Kelola Kategori</h2>
-                  <p className="text-sm text-gray-600">Buat, edit, dan hapus kategori dengan tema biru abu putih.</p>
+                  <h2 className="text-xl font-semibold text-slate-900">Kelola Kategori</h2>
+                  <p className="text-sm text-slate-600">Buat, edit, dan hapus kategori dengan tema biru abu putih.</p>
                 </div>
-                <Button onClick={() => openCategoryModal()} className="rounded-xl bg-blue-600 text-white hover:bg-blue-700">
+                <Button onClick={() => openCategoryModal()} className="rounded-xl bg-primary text-white hover:bg-primary">
                   <Plus className="h-4 w-4" />
                   <span>Tambah Kategori</span>
                 </Button>
               </div>
 
               <Dialog open={categoryModalOpen} onOpenChange={setCategoryModalOpen}>
-                <DialogContent className="max-w-2xl rounded-3xl bg-white border border-gray-200">
+                <DialogContent className="max-w-2xl rounded-3xl bg-white border border-slate-200">
                   <div className="space-y-6">
                     <div className="flex items-center justify-between">
                       <DialogHeader>
-                        <DialogTitle className="text-lg font-semibold text-gray-900">
+                        <DialogTitle className="text-lg font-semibold text-slate-900">
                           {editingCategory ? 'Edit Kategori' : 'Tambah Kategori Baru'}
                         </DialogTitle>
                       </DialogHeader>
@@ -595,7 +595,7 @@ const Admin = () => {
                       </div>
                       <div className="flex justify-end gap-3 pt-4">
                         <Button variant="outline" onClick={() => setCategoryModalOpen(false)}>Batal</Button>
-                        <Button type="submit" className="bg-blue-600 text-white hover:bg-blue-700">Simpan</Button>
+                        <Button type="submit" className="bg-primary text-white hover:bg-primary">Simpan</Button>
                       </div>
                     </form>
                   </div>
@@ -604,22 +604,22 @@ const Admin = () => {
 
               <div className="grid gap-4">
                 {categories.length === 0 ? (
-                  <div className="bg-white rounded-xl border border-gray-200 p-12 text-center shadow-sm">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Tag className="h-8 w-8 text-gray-400" />
+                  <div className="bg-white rounded-xl border border-slate-200 p-12 text-center shadow-sm">
+                    <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Tag className="h-8 w-8 text-slate-400" />
                     </div>
-                    <p className="text-gray-500">Belum ada kategori tersedia.</p>
+                    <p className="text-slate-500">Belum ada kategori tersedia.</p>
                   </div>
                 ) : (
                   categories.map((category) => (
-                    <div key={category.id} className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow">
+                    <div key={category.id} className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-shadow">
                       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                          <p className="text-lg font-semibold text-gray-900">{category.name}</p>
-                          <p className="text-sm text-gray-600">{category.description || 'Tidak ada deskripsi'}</p>
+                          <p className="text-lg font-semibold text-slate-900">{category.name}</p>
+                          <p className="text-sm text-slate-600">{category.description || 'Tidak ada deskripsi'}</p>
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
-                          <Button variant="outline" size="sm" onClick={() => openCategoryModal(category)} className="border-gray-300 hover:bg-blue-50 hover:border-blue-300">Edit</Button>
+                          <Button variant="outline" size="sm" onClick={() => openCategoryModal(category)} className="border-slate-300 hover:bg-slate-50 hover:border-slate-300">Edit</Button>
                           <Button variant="outline" size="sm" className="border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400" onClick={() => handleCategoryDelete(category.id)}>Hapus</Button>
                         </div>
                       </div>

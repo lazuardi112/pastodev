@@ -66,6 +66,8 @@ export const authController = {
       }
 
       const user = await User.findByEmail(email);
+      console.log('Login attempt for email:', email, 'User found:', !!user);
+
       if (!user) {
         return res.status(401).json({
           success: false,
@@ -73,17 +75,29 @@ export const authController = {
         });
       }
 
-      if (user.is_blocked) {
+      // Check if blocked or inactive
+      const isBlocked = user.is_blocked === 1 || user.is_blocked === true;
+      const isActive = user.is_active === 1 || user.is_active === true;
+
+      if (isBlocked) {
         return res.status(403).json({
           success: false,
           message: 'Akun Anda telah diblokir',
         });
       }
 
-      // Handle both hashed and plain text passwords (for migration/legacy)
+      if (!isActive && user.role !== 'admin') {
+        return res.status(403).json({
+          success: false,
+          message: 'Akun Anda belum aktif',
+        });
+      }
+
       const isPasswordValid = user.password && user.password.startsWith('$2')
         ? await comparePassword(password, user.password)
         : password === user.password;
+
+      console.log('Password valid:', isPasswordValid);
 
       if (!isPasswordValid) {
         return res.status(401).json({

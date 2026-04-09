@@ -8,6 +8,7 @@ export interface User {
   role: "user" | "admin";
   balance?: number;
   avatar_url?: string;
+  token?: string;
 }
 
 interface AuthContextType {
@@ -37,10 +38,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Check stored user on mount
   useEffect(() => {
     const saved = localStorage.getItem("user");
-    if (saved) {
+    const token = localStorage.getItem("token");
+    if (saved && token) {
       try {
         setUser(JSON.parse(saved));
       } catch (err) {
+        console.error("Failed to parse stored user:", err);
         localStorage.removeItem("user");
         localStorage.removeItem("token");
       }
@@ -51,20 +54,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       setLoading(true);
+      console.log("Attempting login for:", email);
       const response = await authService.login({ email, password });
 
-      if (response.data?.data) {
+      console.log("Login response:", response.data);
+
+      if (response.data?.success && response.data?.data) {
         const userData = response.data.data;
+        const token = userData.token;
+
+        if (!token) {
+          console.error("Login successful but no token received");
+          return false;
+        }
+
         setUser(userData);
         localStorage.setItem("user", JSON.stringify(userData));
-        if (response.data.data.token) {
-          localStorage.setItem("token", response.data.data.token);
-        }
+        localStorage.setItem("token", token);
+
+        console.log("Login success, user stored:", userData.email);
         return true;
       }
       return false;
-    } catch (error) {
-      console.error("Login error:", error);
+    } catch (error: any) {
+      console.error("Login error detail:", error.response?.data || error.message);
       return false;
     } finally {
       setLoading(false);
@@ -72,6 +85,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = () => {
+    console.log("Logging out user:", user?.email);
     setUser(null);
     localStorage.removeItem("user");
     localStorage.removeItem("token");

@@ -66,7 +66,7 @@ export const AdminProducts = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Manage Products</h1>
+        <h1 className="text-3xl font-bold text-slate-900">Manage Products</h1>
         <Button onClick={() => setShowForm(true)} className="bg-teal-600 hover:bg-teal-700">
           Add Product
         </Button>
@@ -81,22 +81,22 @@ export const AdminProducts = () => {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Product Name</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Product Name</label>
               <input
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                className="w-full px-3 py-2 border border-slate-300 rounded-md"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                className="w-full px-3 py-2 border border-slate-300 rounded-md"
                 rows={3}
                 required
               />
@@ -104,11 +104,11 @@ export const AdminProducts = () => {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
                 <select
                   value={formData.category_id}
                   onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md"
                   required
                 >
                   <option value="">Select Category</option>
@@ -117,33 +117,33 @@ export const AdminProducts = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Price (Rp)</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Price (Rp)</label>
                 <input
                   type="number"
                   value={formData.price}
                   onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md"
                   required
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Product File</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Product File</label>
               <input
                 type="file"
                 onChange={(e) => setFiles({ ...files, file: e.target.files?.[0] })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                className="w-full px-3 py-2 border border-slate-300 rounded-md"
                 accept=".zip,.pdf,.rar,.7z"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Thumbnail</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Thumbnail</label>
               <input
                 type="file"
                 onChange={(e) => setFiles({ ...files, thumbnail: e.target.files?.[0] })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                className="w-full px-3 py-2 border border-slate-300 rounded-md"
                 accept="image/*"
               />
             </div>
@@ -159,27 +159,27 @@ export const AdminProducts = () => {
       {/* Products Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <table className="w-full">
-          <thead className="bg-gray-50">
+          <thead className="bg-slate-50">
             <tr>
-              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Product Name</th>
-              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Category</th>
-              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Price</th>
-              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Actions</th>
+              <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Product Name</th>
+              <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Category</th>
+              <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Price</th>
+              <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y">
             {products.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-6 py-4 text-center text-gray-500">No products found</td>
+                <td colSpan={4} className="px-6 py-4 text-center text-slate-500">No products found</td>
               </tr>
             ) : (
               products.map((product) => (
-                <tr key={product.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm text-gray-900">{product.name}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{product.category_name}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">Rp{product.price.toLocaleString('id-ID')}</td>
+                <tr key={product.id} className="hover:bg-slate-50">
+                  <td className="px-6 py-4 text-sm text-slate-900">{product.name}</td>
+                  <td className="px-6 py-4 text-sm text-slate-900">{product.category_name}</td>
+                  <td className="px-6 py-4 text-sm text-slate-900">Rp{product.price.toLocaleString('id-ID')}</td>
                   <td className="px-6 py-4 text-sm space-x-2">
-                    <button className="text-blue-600 hover:text-blue-800">Edit</button>
+                    <button className="text-primary hover:text-primary">Edit</button>
                     <button className="text-red-600 hover:text-red-800">Delete</button>
                   </td>
                 </tr>
