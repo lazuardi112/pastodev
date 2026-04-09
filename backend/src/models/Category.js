@@ -14,9 +14,7 @@ export const Category = {
       description,
       icon_url,
       thumbnail_url,
-      is_active: true,
-      created_at: new Date(),
-      updated_at: new Date(),
+      is_active: 1,
     };
   },
 
@@ -43,7 +41,7 @@ export const Category = {
   getAll: async (active = true) => {
     let query = 'SELECT * FROM categories';
     if (active) {
-      query += ' WHERE is_active = true';
+      query += ' WHERE is_active = 1';
     }
     query += ' ORDER BY display_order ASC, name ASC';
     const [rows] = await pool.execute(query);
@@ -62,20 +60,33 @@ export const Category = {
 
   update: async (id, data) => {
     const { name, slug, description, icon_url, thumbnail_url, display_order, is_active } = data;
-    const [result] = await pool.execute(
-      `UPDATE categories 
-       SET name = ?, slug = ?, description = ?, icon_url = ?, thumbnail_url = ?, display_order = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
-       WHERE id = ?`,
-      [name, slug, description, icon_url, thumbnail_url, display_order, is_active, id]
+
+    // Build update query dynamically to avoid overwriting with null if not provided
+    const fields = [];
+    const params = [];
+
+    if (name !== undefined) { fields.push('name = ?'); params.push(name); }
+    if (slug !== undefined) { fields.push('slug = ?'); params.push(slug); }
+    if (description !== undefined) { fields.push('description = ?'); params.push(description); }
+    if (icon_url !== undefined) { fields.push('icon_url = ?'); params.push(icon_url); }
+    if (thumbnail_url !== undefined) { fields.push('thumbnail_url = ?'); params.push(thumbnail_url); }
+    if (display_order !== undefined) { fields.push('display_order = ?'); params.push(display_order); }
+    if (is_active !== undefined) { fields.push('is_active = ?'); params.push(is_active); }
+
+    if (fields.length === 0) return await Category.findById(id);
+
+    fields.push('updated_at = CURRENT_TIMESTAMP');
+    params.push(id);
+
+    await pool.execute(
+      `UPDATE categories SET ${fields.join(', ')} WHERE id = ?`,
+      params
     );
-    return { id, name, slug, description, icon_url, thumbnail_url, display_order, is_active };
+    return await Category.findById(id);
   },
 
   delete: async (id) => {
-    const [result] = await pool.execute(
-      'DELETE FROM categories WHERE id = ?',
-      [id]
-    );
+    await pool.execute('DELETE FROM categories WHERE id = ?', [id]);
     return { id };
   },
 };
@@ -93,8 +104,7 @@ export const SubCategory = {
       name,
       slug,
       description,
-      is_active: true,
-      created_at: new Date(),
+      is_active: 1,
     };
   },
 
@@ -108,7 +118,7 @@ export const SubCategory = {
 
   getByCategoryId: async (categoryId) => {
     const [rows] = await pool.execute(
-      'SELECT * FROM sub_categories WHERE category_id = ? AND is_active = true ORDER BY display_order ASC',
+      'SELECT * FROM sub_categories WHERE category_id = ? AND is_active = 1 ORDER BY display_order ASC',
       [categoryId]
     );
     return rows;
@@ -116,20 +126,30 @@ export const SubCategory = {
 
   update: async (id, data) => {
     const { name, slug, description, display_order, is_active } = data;
-    const [result] = await pool.execute(
-      `UPDATE sub_categories 
-       SET name = ?, slug = ?, description = ?, display_order = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
-       WHERE id = ?`,
-      [name, slug, description, display_order, is_active, id]
+
+    const fields = [];
+    const params = [];
+
+    if (name !== undefined) { fields.push('name = ?'); params.push(name); }
+    if (slug !== undefined) { fields.push('slug = ?'); params.push(slug); }
+    if (description !== undefined) { fields.push('description = ?'); params.push(description); }
+    if (display_order !== undefined) { fields.push('display_order = ?'); params.push(display_order); }
+    if (is_active !== undefined) { fields.push('is_active = ?'); params.push(is_active); }
+
+    if (fields.length === 0) return await SubCategory.findById(id);
+
+    fields.push('updated_at = CURRENT_TIMESTAMP');
+    params.push(id);
+
+    await pool.execute(
+      `UPDATE sub_categories SET ${fields.join(', ')} WHERE id = ?`,
+      params
     );
-    return { id, name, slug, description, display_order, is_active };
+    return await SubCategory.findById(id);
   },
 
   delete: async (id) => {
-    const [result] = await pool.execute(
-      'DELETE FROM sub_categories WHERE id = ?',
-      [id]
-    );
+    await pool.execute('DELETE FROM sub_categories WHERE id = ?', [id]);
     return { id };
   },
 };

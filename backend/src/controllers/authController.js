@@ -7,6 +7,13 @@ export const authController = {
     try {
       const { name, email, password, phone } = req.body;
 
+      if (!name || !email || !password) {
+        return res.status(400).json({
+          success: false,
+          message: 'Nama, email, dan password wajib diisi',
+        });
+      }
+
       const existingUser = await User.findByEmail(email);
       if (existingUser) {
         return res.status(400).json({
@@ -41,7 +48,8 @@ export const authController = {
       console.error('Register error:', error);
       res.status(500).json({
         success: false,
-        message: 'Registrasi gagal',
+        message: 'Internal server error saat registrasi',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   },
@@ -49,6 +57,13 @@ export const authController = {
   login: async (req, res) => {
     try {
       const { email, password } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email dan password wajib diisi',
+        });
+      }
 
       const user = await User.findByEmail(email);
       if (!user) {
@@ -65,9 +80,11 @@ export const authController = {
         });
       }
 
-      const isPasswordValid = user.password.startsWith('$2')
+      // Handle both hashed and plain text passwords (for migration/legacy)
+      const isPasswordValid = user.password && user.password.startsWith('$2')
         ? await comparePassword(password, user.password)
         : password === user.password;
+
       if (!isPasswordValid) {
         return res.status(401).json({
           success: false,
@@ -76,7 +93,7 @@ export const authController = {
       }
 
       // Update last login
-      await User.updateLastLogin(user.id);
+      await User.updateLastLogin(user.id).catch(err => console.error('Update last login failed:', err));
 
       const token = generateToken(user);
 
@@ -96,7 +113,8 @@ export const authController = {
       console.error('Login error:', error);
       res.status(500).json({
         success: false,
-        message: 'Login gagal',
+        message: 'Internal server error saat login',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   },
@@ -104,6 +122,13 @@ export const authController = {
   loginWithGoogle: async (req, res) => {
     try {
       const { name, email, google_id, avatar_url } = req.body;
+
+      if (!google_id || !email) {
+        return res.status(400).json({
+          success: false,
+          message: 'Google ID dan email wajib ada',
+        });
+      }
 
       let user = await User.findByGoogleId(google_id);
 
@@ -116,10 +141,11 @@ export const authController = {
             email,
             google_id,
             password: null,
+            avatar_url
           });
         } else {
           // Update google_id for existing user
-          await User.update(user.id, { google_id });
+          await User.update(user.id, { google_id, avatar_url });
         }
       }
 
@@ -130,8 +156,7 @@ export const authController = {
         });
       }
 
-      // Update last login
-      await User.updateLastLogin(user.id);
+      await User.updateLastLogin(user.id).catch(err => console.error('Update last login failed:', err));
 
       const token = generateToken(user);
 
@@ -151,7 +176,8 @@ export const authController = {
       console.error('Google login error:', error);
       res.status(500).json({
         success: false,
-        message: 'Login Google gagal',
+        message: 'Internal server error saat login Google',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   },
@@ -204,10 +230,10 @@ export const authController = {
 
   getBalance: async (req, res) => {
     try {
-      const balance = await User.getBalance(req.user.id);
+      const result = await User.getBalance(req.user.id);
       res.json({
         success: true,
-        data: balance,
+        data: result,
       });
     } catch (error) {
       console.error('Get balance error:', error);

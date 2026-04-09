@@ -12,7 +12,7 @@ export const categoryController = {
       console.error('Get categories error:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to get categories',
+        message: 'Gagal mengambil data kategori',
       });
     }
   },
@@ -25,7 +25,7 @@ export const categoryController = {
       if (!category) {
         return res.status(404).json({
           success: false,
-          message: 'Category not found',
+          message: 'Kategori tidak ditemukan',
         });
       }
 
@@ -37,7 +37,7 @@ export const categoryController = {
       console.error('Get category error:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to get category',
+        message: 'Gagal mengambil detail kategori',
       });
     }
   },
@@ -46,24 +46,31 @@ export const categoryController = {
     try {
       const { name, slug, description, icon_url, thumbnail_url } = req.body;
 
+      if (!name) {
+        return res.status(400).json({
+          success: false,
+          message: 'Nama kategori wajib diisi',
+        });
+      }
+
       const category = await Category.create({
         name,
-        slug: slug || name.toLowerCase().replace(/\s+/g, '-'),
-        description,
-        icon_url,
-        thumbnail_url,
+        slug: slug || name.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-'),
+        description: description || '',
+        icon_url: icon_url || '',
+        thumbnail_url: thumbnail_url || '',
       });
 
       res.status(201).json({
         success: true,
-        message: 'Category created successfully',
+        message: 'Kategori berhasil dibuat',
         data: category,
       });
     } catch (error) {
       console.error('Create category error:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to create category',
+        message: 'Gagal membuat kategori',
       });
     }
   },
@@ -73,18 +80,26 @@ export const categoryController = {
       const { id } = req.params;
       const data = req.body;
 
+      const existing = await Category.findById(id);
+      if (!existing) {
+        return res.status(404).json({
+          success: false,
+          message: 'Kategori tidak ditemukan',
+        });
+      }
+
       const category = await Category.update(id, data);
 
       res.json({
         success: true,
-        message: 'Category updated successfully',
+        message: 'Kategori berhasil diperbarui',
         data: category,
       });
     } catch (error) {
       console.error('Update category error:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to update category',
+        message: 'Gagal memperbarui kategori',
       });
     }
   },
@@ -92,17 +107,25 @@ export const categoryController = {
   delete: async (req, res) => {
     try {
       const { id } = req.params;
+      const existing = await Category.findById(id);
+      if (!existing) {
+        return res.status(404).json({
+          success: false,
+          message: 'Kategori tidak ditemukan',
+        });
+      }
+
       await Category.delete(id);
 
       res.json({
         success: true,
-        message: 'Category deleted successfully',
+        message: 'Kategori berhasil dihapus',
       });
     } catch (error) {
       console.error('Delete category error:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to delete category',
+        message: 'Gagal menghapus kategori',
       });
     }
   },
@@ -122,7 +145,7 @@ export const subCategoryController = {
       console.error('Get sub categories error:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to get sub categories',
+        message: 'Gagal mengambil data sub-kategori',
       });
     }
   },
@@ -131,23 +154,30 @@ export const subCategoryController = {
     try {
       const { category_id, name, slug, description } = req.body;
 
+      if (!category_id || !name) {
+        return res.status(400).json({
+          success: false,
+          message: 'Kategori ID dan nama wajib diisi',
+        });
+      }
+
       const subCategory = await SubCategory.create({
-        category_id,
+        category_id: parseInt(category_id),
         name,
-        slug: slug || name.toLowerCase().replace(/\s+/g, '-'),
-        description,
+        slug: slug || name.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-'),
+        description: description || '',
       });
 
       res.status(201).json({
         success: true,
-        message: 'Sub category created successfully',
+        message: 'Sub-kategori berhasil dibuat',
         data: subCategory,
       });
     } catch (error) {
       console.error('Create sub category error:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to create sub category',
+        message: 'Gagal membuat sub-kategori',
       });
     }
   },
@@ -161,14 +191,14 @@ export const subCategoryController = {
 
       res.json({
         success: true,
-        message: 'Sub category updated successfully',
+        message: 'Sub-kategori berhasil diperbarui',
         data: subCategory,
       });
     } catch (error) {
       console.error('Update sub category error:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to update sub category',
+        message: 'Gagal memperbarui sub-kategori',
       });
     }
   },
@@ -180,13 +210,13 @@ export const subCategoryController = {
 
       res.json({
         success: true,
-        message: 'Sub category deleted successfully',
+        message: 'Sub-kategori berhasil dihapus',
       });
     } catch (error) {
       console.error('Delete sub category error:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to delete sub category',
+        message: 'Gagal menghapus sub-kategori',
       });
     }
   },
