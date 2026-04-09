@@ -20,7 +20,7 @@ export const Product = {
         ? price * (1 - discount_percent / 100)
         : price;
 
-    const { rows } = await pool.query(
+    await pool.query(
       `INSERT INTO products (
         category_id, name, slug, description, price, 
         discount_percent, discount_price, file_url, file_size, 
@@ -30,8 +30,8 @@ export const Product = {
       [category_id, name, slug, description, price, discount_percent, discount_price, file_url, file_size, thumbnail_url, created_by]
     );
 
-    const [result] = await pool.execute('SELECT * FROM products ORDER BY id DESC LIMIT 1');
-    return result[0];
+    const { rows } = await pool.query('SELECT * FROM products ORDER BY id DESC LIMIT 1');
+    return rows[0];
   },
 
   findById: async (id) => {
@@ -77,15 +77,13 @@ export const Product = {
     }
 
     if (search) {
-      query += ` AND (p.name LIKE $${i} OR p.description LIKE $${i})`;
-      params.push(`%${search}%`);
-      i++;
+      query += ` AND (p.name LIKE $${i} OR p.description LIKE $${i + 1})`;
+      params.push(`%${search}%`, `%${search}%`);
+      i += 2;
     }
 
-    query += ` ORDER BY p.created_at DESC LIMIT $${i++}` ;
-    params.push(limit);
-    query += ` OFFSET $${i++}`;
-    params.push(offset);
+    query += ` ORDER BY p.created_at DESC LIMIT $${i++} OFFSET $${i++}`;
+    params.push(limit, offset);
 
     const { rows } = await pool.query(query, params);
     return rows;

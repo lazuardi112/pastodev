@@ -15,6 +15,7 @@ dotenv.config({ path: path.join(__dirname, '../../.env') });
 let pool;
 
 // Helper: convert Postgres-style $1, $2... placeholders to ? for mysql/sqlite
+// This version is safer and doesn't rely on global replacement if not needed
 function convertDollarToQuestion(sql) {
   if (typeof sql !== 'string') return sql;
   return sql.replace(/\$\d+/g, '?');
