@@ -4,9 +4,9 @@ export const Voucher = {
   create: async (data) => {
     const { code, description, discount_type, discount_value, min_purchase, max_discount, usage_limit, valid_from, valid_until } = data;
     await pool.query(
-      `INSERT INTO vouchers (code, description, discount_type, discount_value, min_purchase, max_discount, usage_limit, expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [code, description, discount_type, discount_value, min_purchase, max_discount, usage_limit, valid_until]
+      `INSERT INTO vouchers (code, description, discount_type, discount_value, min_purchase, max_discount, usage_limit, valid_from, valid_until)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [code, description, discount_type, discount_value, min_purchase, max_discount, usage_limit, valid_from, valid_until]
     );
     const { rows } = await pool.query('SELECT * FROM vouchers ORDER BY id DESC LIMIT 1');
     return rows[0];
@@ -17,7 +17,7 @@ export const Voucher = {
       `SELECT * FROM vouchers 
        WHERE code = $1 
        AND is_active = 1
-       AND (expires_at IS NULL OR expires_at >= CURRENT_TIMESTAMP)`,
+       AND (valid_until IS NULL OR valid_until >= CURRENT_TIMESTAMP)`,
       [code.toUpperCase()]
     );
     return rows[0];
@@ -50,7 +50,7 @@ export const Voucher = {
     params.push(id);
     await pool.query(
       `UPDATE vouchers 
-       SET ${fields.join(', ')}
+       SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP
        WHERE id = $${i}`,
       params
     );
