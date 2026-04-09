@@ -9,19 +9,19 @@ import bcryptjs from 'bcryptjs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-dotenv.config();
+// Load env from backend/.env
+dotenv.config({ path: path.join(__dirname, '../../.env') });
 
 let pool;
-const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // Helper: convert Postgres-style $1, $2... placeholders to ? for mysql/sqlite
 function convertDollarToQuestion(sql) {
+  if (typeof sql !== 'string') return sql;
   return sql.replace(/\$\d+/g, '?');
 }
 
 // Function to initialize SQLite database
 function initializeSQLiteDatabase(dbPath) {
-  // Ensure data directory exists
   const dataDir = path.dirname(dbPath);
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
@@ -30,7 +30,6 @@ function initializeSQLiteDatabase(dbPath) {
   const db = new Database(dbPath);
   db.pragma('journal_mode = WAL');
 
-  // Create all tables individually
   const tableStatements = [
     `CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -157,6 +156,8 @@ function initializeSQLiteDatabase(dbPath) {
       amount DECIMAL(15,2) NOT NULL,
       type TEXT NOT NULL,
       description TEXT,
+      balance_before DECIMAL(15,2),
+      balance_after DECIMAL(15,2),
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )`,
@@ -201,32 +202,11 @@ function initializeSQLiteDatabase(dbPath) {
     )`
   ];
 
-  // Execute table creation
   for (const sql of tableStatements) {
     try {
       db.exec(sql);
     } catch (error) {
-      // Table might already exist
-    }
-  }
-
-  // Create indexes
-  const indexStatements = [
-    'CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)',
-    'CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id)',
-    'CREATE INDEX IF NOT EXISTS idx_transactions_user ON transactions(user_id)',
-    'CREATE INDEX IF NOT EXISTS idx_cart_user ON cart(user_id)',
-    'CREATE INDEX IF NOT EXISTS idx_reviews_product ON reviews(product_id)',
-    'CREATE INDEX IF NOT EXISTS idx_custom_order_messages_order ON custom_order_messages(custom_order_id)',
-    'CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id)',
-    'CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(is_read)'
-  ];
-
-  for (const sql of indexStatements) {
-    try {
-      db.exec(sql);
-    } catch (error) {
-      // Index might already exist
+      console.error('Error creating table:', error.message);
     }
   }
 
@@ -241,7 +221,7 @@ function initializeSQLiteDatabase(dbPath) {
       `).run('Admin PastoDEV', 'admin@pastopup.id', hashedPassword, 'admin', 1);
     }
   } catch (error) {
-    // Admin user might already exist
+    console.error('Error creating admin user:', error.message);
   }
 
   // Insert default settings
@@ -268,76 +248,39 @@ function initializeSQLiteDatabase(dbPath) {
         `).run(key, value, description);
       }
     } catch (error) {
-      // Setting might already exist
+      console.error(`Error creating setting ${key}:`, error.message);
     }
   }
 
   return db;
 }
 
-// Function to create SQLite pool wrapper
 function createSQLitePool(db) {
-  return {
-    execute: async (sql, params = []) => {
-      try {
-        const stmt = db.prepare(sql);
-        let result;
+  const execute = async (sql, params = []) => {
+    const converted = convertDollarToQuestion(sql);
+    const stmt = db.prepare(converted);
+    const sqlUpper = sql.toUpperCase().trim();
 
-        const sqlUpper = sql.toUpperCase().trim();
-        if (sqlUpper.startsWith('SELECT')) {
-          result = params.length > 0 ? stmt.all(...params) : stmt.all();
-          return [result, null];
-        } else if (sqlUpper.startsWith('INSERT')) {
-          result = params.length > 0 ? stmt.run(...params) : stmt.run();
-          return [{ insertId: result.lastInsertRowid, affectedRows: result.changes }, null];
-        } else if (sqlUpper.startsWith('UPDATE') || sqlUpper.startsWith('DELETE')) {
-          result = params.length > 0 ? stmt.run(...params) : stmt.run();
-          return [{ affectedRows: result.changes }, null];
-        } else {
-          result = params.length > 0 ? stmt.all(...params) : stmt.all();
-          return [result, null];
-        }
-      } catch (error) {
-        console.error('Database error:', error.message);
-        return [null, error];
-      }
-    },
-    // Provide `query` that returns an object with `.rows` to match Postgres-style models
+    if (sqlUpper.startsWith('SELECT')) {
+      const rows = stmt.all(...params);
+      return [rows, null];
+    } else {
+      const result = stmt.run(...params);
+      return [{
+        insertId: result.lastInsertRowid,
+        affectedRows: result.changes
+      }, null];
+    }
+  };
+
+  return {
+    execute,
     query: async (sql, params = []) => {
-      try {
-        // convert $1 placeholders to ? if present
-        const converted = convertDollarToQuestion(sql);
-        const stmt = db.prepare(converted);
-        const result = params.length > 0 ? stmt.all(...params) : stmt.all();
-        return { rows: result };
-      } catch (error) {
-        return { rows: null, error };
-      }
+      const [rows] = await execute(sql, params);
+      return { rows };
     },
     getConnection: async () => ({
-      execute: async (sql, params = []) => {
-        try {
-          const stmt = db.prepare(sql);
-          let result;
-
-          const sqlUpper = sql.toUpperCase().trim();
-          if (sqlUpper.startsWith('SELECT')) {
-            result = params.length > 0 ? stmt.all(...params) : stmt.all();
-            return [result, null];
-          } else if (sqlUpper.startsWith('INSERT')) {
-            result = params.length > 0 ? stmt.run(...params) : stmt.run();
-            return [{ insertId: result.lastInsertRowid, affectedRows: result.changes }, null];
-          } else if (sqlUpper.startsWith('UPDATE') || sqlUpper.startsWith('DELETE')) {
-            result = params.length > 0 ? stmt.run(...params) : stmt.run();
-            return [{ affectedRows: result.changes }, null];
-          } else {
-            result = params.length > 0 ? stmt.all(...params) : stmt.all();
-            return [result, null];
-          }
-        } catch (error) {
-          return [null, error];
-        }
-      },
+      execute,
       beginTransaction: async () => { db.exec('BEGIN TRANSACTION'); },
       commit: async () => { db.exec('COMMIT'); },
       rollback: async () => { db.exec('ROLLBACK'); },
@@ -346,67 +289,55 @@ function createSQLitePool(db) {
   };
 }
 
-// Initialize database based on environment
-// Try MySQL first
-console.log('🗄️  Connecting to MySQL Database...');
-let mysqlConnected = false;
+const dbConfig = {
+  host: process.env.DB_HOST || 'localhost',
+  port: process.env.DB_PORT || 3306,
+  database: process.env.DB_NAME || 'xcreatem_store',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+  connectTimeout: 10000,
+};
+
+console.log(`🗄️  Connecting to MySQL Database at ${dbConfig.host}...`);
 
 try {
-  const testPool = mysql.createPool({
-    host: process.env.DB_HOST || 'localhost',
-    port: process.env.DB_PORT || 3306,
-    database: process.env.DB_NAME || 'pastodev_marketplace',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD,
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0,
-    connectTimeout: 10000,
-  });
-
-  // Test the connection
-  const testConnection = await testPool.getConnection();
-  testConnection.release();
+  const mysqlPool = mysql.createPool(dbConfig);
+  // Test connection
+  const connection = await mysqlPool.getConnection();
+  connection.release();
   console.log('✅ MySQL database connection successful!');
-  // Wrap pool to provide `query(sql, params)` that accepts $n placeholders and returns { rows }
+
   pool = {
-    // keep native execute for existing code that expects mysql2 execute signature
-    execute: (...args) => testPool.execute(...args),
+    execute: (sql, params) => mysqlPool.execute(convertDollarToQuestion(sql), params),
+    query: async (sql, params = []) => {
+      const [rows] = await mysqlPool.execute(convertDollarToQuestion(sql), params);
+      return { rows };
+    },
     getConnection: async () => {
-      const conn = await testPool.getConnection();
+      const conn = await mysqlPool.getConnection();
       return {
-        execute: (...args) => conn.execute(...args),
-        beginTransaction: async () => { await conn.beginTransaction?.(); },
-        commit: async () => { await conn.commit?.(); },
-        rollback: async () => { await conn.rollback?.(); },
+        execute: (sql, params) => conn.execute(convertDollarToQuestion(sql), params),
+        beginTransaction: () => conn.beginTransaction(),
+        commit: () => conn.commit(),
+        rollback: () => conn.rollback(),
         release: () => conn.release(),
       };
-    },
-    // `query` converts $1 placeholders to ? and returns object `{ rows }` to match Postgres-style models
-    query: async (sql, params = []) => {
-      const converted = convertDollarToQuestion(sql);
-      const [rows] = await testPool.execute(converted, params);
-      return { rows };
     }
   };
-  mysqlConnected = true;
-
 } catch (error) {
   console.error('❌ MySQL database connection failed:', error.message);
-}
-
-// If MySQL failed, use SQLite as fallback
-if (!mysqlConnected) {
-  console.log('💡 Switching to SQLite database for production...');
-
+  console.log('💡 Switching to SQLite database as fallback...');
   try {
     const dbPath = path.join(__dirname, '../../data/production.db');
     const db = initializeSQLiteDatabase(dbPath);
     pool = createSQLitePool(db);
-    console.log('✅ SQLite database initialized as fallback');
+    console.log('✅ SQLite database initialized');
   } catch (sqliteError) {
     console.error('❌ SQLite initialization failed:', sqliteError.message);
-    throw new Error('No database connection available');
+    process.exit(1);
   }
 }
 

@@ -30,7 +30,7 @@ export const productController = {
       console.error('Get products error:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to get products',
+        message: 'Gagal mengambil data produk',
       });
     }
   },
@@ -43,12 +43,12 @@ export const productController = {
       if (!product) {
         return res.status(404).json({
           success: false,
-          message: 'Product not found',
+          message: 'Produk tidak ditemukan',
         });
       }
 
-      // Increment views
-      await Product.incrementViews(id);
+      // Increment views (don't wait for it)
+      Product.incrementViews(id).catch(err => console.error('Increment views error:', err));
 
       // Get reviews
       const reviews = await Review.getByProductId(id);
@@ -66,26 +66,33 @@ export const productController = {
       console.error('Get product error:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to get product',
+        message: 'Gagal mengambil detail produk',
       });
     }
   },
 
   create: async (req, res) => {
     try {
-      const { category_id, sub_category_id, name, description, price } = req.body;
+      const { category_id, sub_category_id, name, description, price, discount_percent } = req.body;
       const files = req.files || {};
+
+      if (!name || !price || !category_id) {
+        return res.status(400).json({
+          success: false,
+          message: 'Nama, harga, dan kategori wajib diisi',
+        });
+      }
 
       let file_url = null;
       let thumbnail_url = null;
 
       // Upload product file
-      if (files.file) {
+      if (files.file && files.file[0]) {
         file_url = `/uploads/${files.file[0].filename}`;
       }
 
       // Upload thumbnail
-      if (files.thumbnail) {
+      if (files.thumbnail && files.thumbnail[0]) {
         thumbnail_url = `/uploads/${files.thumbnail[0].filename}`;
       }
 
@@ -93,9 +100,10 @@ export const productController = {
         category_id: parseInt(category_id),
         sub_category_id: sub_category_id ? parseInt(sub_category_id) : null,
         name,
-        slug: name.toLowerCase().replace(/\s+/g, '-'),
-        description,
+        slug: name.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-'),
+        description: description || '',
         price: parseFloat(price),
+        discount_percent: discount_percent ? parseFloat(discount_percent) : 0,
         file_url,
         thumbnail_url,
         created_by: req.user.id,
@@ -103,14 +111,15 @@ export const productController = {
 
       res.status(201).json({
         success: true,
-        message: 'Product created successfully',
+        message: 'Produk berhasil dibuat',
         data: product,
       });
     } catch (error) {
       console.error('Create product error:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to create product',
+        message: 'Gagal membuat produk',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   },
@@ -118,57 +127,64 @@ export const productController = {
   update: async (req, res) => {
     try {
       const { id } = req.params;
-      const { name, description, price, is_active } = req.body;
+      const { name, description, price, discount_percent, is_active } = req.body;
       const files = req.files || {};
 
       const product = await Product.findById(id);
       if (!product) {
         return res.status(404).json({
           success: false,
-          message: 'Product not found',
+          message: 'Produk tidak ditemukan',
         });
       }
 
       let file_url = product.file_url;
       let thumbnail_url = product.thumbnail_url;
 
+      const uploadDir = process.env.UPLOAD_DIR || './uploads';
+
       // Handle file updates
-      if (files.file) {
-        const oldPath = path.join(process.env.UPLOAD_DIR || './uploads', product.file_url?.split('/').pop());
-        if (fs.existsSync(oldPath)) {
-          fs.unlinkSync(oldPath);
+      if (files.file && files.file[0]) {
+        if (product.file_url) {
+          const oldPath = path.join(uploadDir, product.file_url.split('/').pop());
+          if (fs.existsSync(oldPath)) {
+            try { fs.unlinkSync(oldPath); } catch (e) { console.error('Error unlinking file:', e); }
+          }
         }
         file_url = `/uploads/${files.file[0].filename}`;
       }
 
-      if (files.thumbnail) {
-        const oldPath = path.join(process.env.UPLOAD_DIR || './uploads', product.thumbnail_url?.split('/').pop());
-        if (fs.existsSync(oldPath)) {
-          fs.unlinkSync(oldPath);
+      if (files.thumbnail && files.thumbnail[0]) {
+        if (product.thumbnail_url) {
+          const oldPath = path.join(uploadDir, product.thumbnail_url.split('/').pop());
+          if (fs.existsSync(oldPath)) {
+            try { fs.unlinkSync(oldPath); } catch (e) { console.error('Error unlinking thumbnail:', e); }
+          }
         }
         thumbnail_url = `/uploads/${files.thumbnail[0].filename}`;
       }
 
       const updatedProduct = await Product.update(id, {
-        name,
-        slug: name.toLowerCase().replace(/\s+/g, '-'),
-        description,
-        price: parseFloat(price),
+        name: name || product.name,
+        slug: name ? name.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-') : product.slug,
+        description: description !== undefined ? description : product.description,
+        price: price !== undefined ? parseFloat(price) : product.price,
+        discount_percent: discount_percent !== undefined ? parseFloat(discount_percent) : product.discount_percent,
         file_url,
         thumbnail_url,
-        is_active: is_active !== undefined ? is_active : product.is_active,
+        is_active: is_active !== undefined ? (is_active === 'true' || is_active === true || is_active === 1) : product.is_active,
       });
 
       res.json({
         success: true,
-        message: 'Product updated successfully',
+        message: 'Produk berhasil diperbarui',
         data: updatedProduct,
       });
     } catch (error) {
       console.error('Update product error:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to update product',
+        message: 'Gagal memperbarui produk',
       });
     }
   },
@@ -181,22 +197,24 @@ export const productController = {
       if (!product) {
         return res.status(404).json({
           success: false,
-          message: 'Product not found',
+          message: 'Produk tidak ditemukan',
         });
       }
 
+      const uploadDir = process.env.UPLOAD_DIR || './uploads';
+
       // Delete files
       if (product.file_url) {
-        const filePath = path.join(process.env.UPLOAD_DIR || './uploads', product.file_url.split('/').pop());
+        const filePath = path.join(uploadDir, product.file_url.split('/').pop());
         if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
+          try { fs.unlinkSync(filePath); } catch (e) { console.error('Error deleting file:', e); }
         }
       }
 
       if (product.thumbnail_url) {
-        const thumbnailPath = path.join(process.env.UPLOAD_DIR || './uploads', product.thumbnail_url.split('/').pop());
+        const thumbnailPath = path.join(uploadDir, product.thumbnail_url.split('/').pop());
         if (fs.existsSync(thumbnailPath)) {
-          fs.unlinkSync(thumbnailPath);
+          try { fs.unlinkSync(thumbnailPath); } catch (e) { console.error('Error deleting thumbnail:', e); }
         }
       }
 
@@ -204,13 +222,13 @@ export const productController = {
 
       res.json({
         success: true,
-        message: 'Product deleted successfully',
+        message: 'Produk berhasil dihapus',
       });
     } catch (error) {
       console.error('Delete product error:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to delete product',
+        message: 'Gagal menghapus produk',
       });
     }
   },
@@ -220,11 +238,18 @@ export const productController = {
       const { productId } = req.params;
       const { rating, comment } = req.body;
 
+      if (!rating) {
+        return res.status(400).json({
+          success: false,
+          message: 'Rating wajib diisi',
+        });
+      }
+
       const product = await Product.findById(productId);
       if (!product) {
         return res.status(404).json({
           success: false,
-          message: 'Product not found',
+          message: 'Produk tidak ditemukan',
         });
       }
 
@@ -232,19 +257,19 @@ export const productController = {
         product_id: productId,
         user_id: req.user.id,
         rating: parseInt(rating),
-        comment,
+        comment: comment || '',
       });
 
       res.status(201).json({
         success: true,
-        message: 'Review added successfully',
+        message: 'Review berhasil ditambahkan',
         data: review,
       });
     } catch (error) {
       console.error('Add review error:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to add review',
+        message: 'Gagal menambahkan review',
       });
     }
   },
@@ -262,7 +287,7 @@ export const productController = {
       console.error('Get reviews error:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to get reviews',
+        message: 'Gagal mengambil data review',
       });
     }
   },
