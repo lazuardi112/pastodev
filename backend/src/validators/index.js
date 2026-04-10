@@ -25,6 +25,7 @@ export const validateProduct = [
 ];
 
 export const validateReview = [
+  body('product_id').isInt({ min: 1 }).withMessage('product_id tidak valid'),
   body('rating')
     .isInt({ min: 1, max: 5 })
     .withMessage('Rating must be between 1 and 5'),
@@ -50,7 +51,7 @@ export const validateCheckout = [
 ];
 
 export const validateCustomOrder = [
-  body('title').notEmpty().withMessage('Title is required').trim(),
+  body('title').optional().trim(),
   body('description').notEmpty().withMessage('Description is required').trim(),
   body('budget').isFloat({ min: 0 }).withMessage('Budget must be valid'),
 ];

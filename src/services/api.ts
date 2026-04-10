@@ -1,5 +1,17 @@
 import apiClient from './apiClient';
 
+/** Alias REST: /api/user/* (sama isi dengan /api/auth/* untuk beberapa endpoint). */
+export const userService = {
+  getProfile: () => apiClient.get('/user/profile'),
+  updateProfile: (data: { name?: string; phone?: string; avatar_url?: string }) =>
+    apiClient.put('/user/profile', data),
+  getBalance: () => apiClient.get('/user/balance'),
+  getBalanceHistory: (limit = 50, offset = 0) =>
+    apiClient.get('/user/balance-history', { params: { limit, offset } }),
+  getNotifications: (limit = 20, offset = 0) =>
+    apiClient.get('/user/notifications', { params: { limit, offset } }),
+};
+
 export const authService = {
   register: (data: { name: string; email: string; password: string; phone?: string }) =>
     apiClient.post('/auth/register', data),
@@ -52,11 +64,16 @@ export const categoryService = {
     apiClient.delete(`/categories/subcategories/${id}`),
 };
 
+export const publicService = {
+  getLanding: () => apiClient.get('/public/landing'),
+  getPublicTheme: () => apiClient.get('/settings/public'),
+};
+
 export const productService = {
   getAll: (categoryId?: number, search?: string, limit = 20, offset = 0) =>
     apiClient.get('/products', { params: { category_id: categoryId, search, limit, offset } }),
 
-  getById: (id: number) =>
+  getById: (id: string | number) =>
     apiClient.get(`/products/${id}`),
 
   create: (formData: FormData) =>
@@ -110,6 +127,12 @@ export const adminService = {
   getDashboardStats: () =>
     apiClient.get('/admin/dashboard'),
 
+  getSettings: () =>
+    apiClient.get('/admin/settings'),
+
+  updateSettingsBulk: (payload: Record<string, string>) =>
+    apiClient.put('/admin/settings/bulk/update', payload),
+
   getTransactions: (limit = 20, offset = 0) =>
     apiClient.get('/admin/transactions', { params: { limit, offset } }),
 
@@ -118,6 +141,23 @@ export const adminService = {
 
   getUsers: (limit = 20, offset = 0) =>
     apiClient.get('/admin/users', { params: { limit, offset } }),
+
+  updateUser: (
+    userId: number,
+    body: { name?: string; email?: string; phone?: string; role?: string; is_active?: boolean; is_blocked?: boolean }
+  ) => apiClient.put(`/admin/users/${userId}`, body),
+
+  deactivateUser: (userId: number) =>
+    apiClient.delete(`/admin/users/${userId}`),
+
+  toggleUserBlock: (userId: number) =>
+    apiClient.put(`/admin/users/${userId}/block`),
+
+  addUserBalance: (userId: number, amount: number, reason?: string) =>
+    apiClient.post(`/admin/users/${userId}/balance/add`, { amount, reason }),
+
+  subtractUserBalance: (userId: number, amount: number, reason?: string) =>
+    apiClient.post(`/admin/users/${userId}/balance/subtract`, { amount, reason }),
 
   // Vouchers
   createVoucher: (data: any) =>
@@ -144,11 +184,33 @@ export const adminService = {
 
   addCustomOrderMessage: (orderId: number, formData: FormData) =>
     apiClient.post(`/admin/custom-orders/${orderId}/messages`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+
+  /** Notifikasi in-app: semua pengguna atau satu user_id. */
+  sendNotificationBroadcast: (data: {
+    title: string;
+    message: string;
+    send_to_all: boolean;
+    user_id?: number;
+  }) => apiClient.post('/admin/notifications/broadcast', data),
+
+  getContactInfoList: () => apiClient.get('/admin/contact-info'),
+  createContactInfo: (body: {
+    title: string;
+    description?: string;
+    phone?: string;
+    email?: string;
+    address?: string;
+  }) => apiClient.post('/admin/contact-info', body),
+  updateContactInfo: (
+    id: number,
+    body: Partial<{ title: string; description: string; phone: string; email: string; address: string }>
+  ) => apiClient.put(`/admin/contact-info/${id}`, body),
+  deleteContactInfo: (id: number) => apiClient.delete(`/admin/contact-info/${id}`),
 };
 
 export const customOrderService = {
-  create: (data: { title: string; description: string; budget: number }) =>
-    apiClient.post('/custom-orders', data),
+  create: (data: FormData) =>
+    apiClient.post('/custom-orders', data, { headers: { 'Content-Type': 'multipart/form-data' } }),
 
   getMyOrders: (limit = 20, offset = 0) =>
     apiClient.get('/custom-orders/my-orders', { params: { limit, offset } }),
@@ -158,12 +220,33 @@ export const customOrderService = {
 
   addMessage: (orderId: number, formData: FormData) =>
     apiClient.post(`/custom-orders/${orderId}/messages`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+
+  downloadResult: (id: number) =>
+    apiClient.get(`/custom-orders/download/${id}`, { responseType: 'blob' }),
 };
 
 export const paymentService = {
   topup: (amount: number) =>
-    apiClient.post('/admin/topup', { amount }),
+    apiClient.post('/topup', { amount }),
+};
 
-  topupCallback: (orderId: string) =>
-    apiClient.post('/admin/topup/callback', { order_id: orderId }),
+export const ordersService = {
+  /** Direct buy — Snap QRIS */
+  create: (body: { product_id: number; quantity?: number }) =>
+    apiClient.post('/orders', body),
+  /** Riwayat pesanan (tabel orders) */
+  listMine: (limit = 50, offset = 0) =>
+    apiClient.get('/orders/user', { params: { limit, offset } }),
+};
+
+export const reviewsApi = {
+  create: (body: { product_id: number; rating: number; comment?: string }) =>
+    apiClient.post('/reviews', body),
+};
+
+/** GET /api/transactions — riwayat untuk user login. */
+export const transactionService = {
+  list: (limit = 20, offset = 0) =>
+    apiClient.get('/transactions', { params: { limit, offset } }),
+  getById: (id: number) => apiClient.get(`/transactions/${id}`),
 };

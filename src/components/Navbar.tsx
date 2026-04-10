@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { ShoppingCart, Menu, X, User, Search, LogOut, LayoutDashboard, Shield, Store, Code, ChevronRight, MessageCircle } from "lucide-react";
+import { ShoppingCart, Menu, X, User, Search, LogOut, LayoutDashboard, Shield, Store, Code, ChevronRight, MessageCircle, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
@@ -78,6 +78,13 @@ const Navbar = () => {
               <Search className="h-4 w-4" />
             </Button>
           </Link>
+          {user && (
+            <Link to="/topup" title="Top Up Saldo">
+              <Button variant="ghost" size="icon" className="rounded-xl hover:bg-accent transition-colors text-primary">
+                <Wallet className="h-4 w-4" />
+              </Button>
+            </Link>
+          )}
           <Link to="/cart" className="relative">
             <Button variant="ghost" size="icon" className="rounded-xl hover:bg-accent transition-colors">
               <ShoppingCart className="h-4 w-4" />
@@ -163,6 +170,9 @@ const Navbar = () => {
             <div className="h-px bg-border/50 my-2" />
             {user ? (
               <>
+                <Link to="/topup" onClick={() => setMobileOpen(false)} className="py-3 px-4 rounded-xl text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground flex items-center gap-2 opacity-0 animate-slide-up stagger-4">
+                  <Wallet className="h-4 w-4 text-primary" /> Top Up Saldo
+                </Link>
                 <Link to="/dashboard" onClick={() => setMobileOpen(false)} className="py-3 px-4 rounded-xl text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground flex items-center gap-2 opacity-0 animate-slide-up stagger-5">
                   <LayoutDashboard className="h-4 w-4" /> Dashboard
                 </Link>

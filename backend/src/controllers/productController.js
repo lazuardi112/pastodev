@@ -6,13 +6,18 @@ import path from 'path';
 export const productController = {
   getAll: async (req, res) => {
     try {
-      const { category_id, search, limit = 20, offset = 0 } = req.query;
+      const { category_id, search, limit = 20, offset = 0, only_active, featured } = req.query;
+
+      const showAllIncludingInactive =
+        only_active === '0' || only_active === 'false' || only_active === false;
 
       const products = await Product.search({
         category_id: category_id ? parseInt(category_id) : null,
         search,
         limit: parseInt(limit),
         offset: parseInt(offset),
+        only_active: showAllIncludingInactive ? false : true,
+        featured: featured === '1' || featured === 'true',
       });
 
       const count = await Product.count(category_id ? parseInt(category_id) : null);
@@ -38,7 +43,8 @@ export const productController = {
   getById: async (req, res) => {
     try {
       const { id } = req.params;
-      const product = await Product.findById(id);
+      const numeric = /^\d+$/.test(String(id));
+      const product = numeric ? await Product.findById(id) : await Product.findBySlug(id);
 
       if (!product) {
         return res.status(404).json({
@@ -47,12 +53,14 @@ export const productController = {
         });
       }
 
+      const pid = product.id;
+
       // Increment views (don't wait for it)
-      Product.incrementViews(id).catch(err => console.error('Increment views error:', err));
+      Product.incrementViews(pid).catch(err => console.error('Increment views error:', err));
 
       // Get reviews
-      const reviews = await Review.getByProductId(id);
-      const stats = await Review.getStats(id);
+      const reviews = await Review.getByProductId(pid);
+      const stats = await Review.getStats(pid);
 
       res.json({
         success: true,
@@ -97,14 +105,15 @@ export const productController = {
       }
 
       const product = await Product.create({
-        category_id: parseInt(category_id),
-        sub_category_id: sub_category_id ? parseInt(sub_category_id) : null,
+        category_id: parseInt(category_id, 10),
+        sub_category_id: sub_category_id ? parseInt(sub_category_id, 10) : null,
         name,
         slug: name.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-'),
         description: description || '',
         price: parseFloat(price),
         discount_percent: discount_percent ? parseFloat(discount_percent) : 0,
         file_url,
+        file_size: files.file?.[0]?.size != null ? Number(files.file[0].size) : null,
         thumbnail_url,
         created_by: req.user.id,
       });
@@ -164,6 +173,15 @@ export const productController = {
         thumbnail_url = `/uploads/${files.thumbnail[0].filename}`;
       }
 
+      const is_featured = req.body.is_featured;
+      const featuredVal =
+        is_featured === undefined
+          ? undefined
+          : is_featured === true ||
+            is_featured === 'true' ||
+            is_featured === 1 ||
+            is_featured === '1';
+
       const updatedProduct = await Product.update(id, {
         name: name || product.name,
         slug: name ? name.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-') : product.slug,
@@ -173,6 +191,7 @@ export const productController = {
         file_url,
         thumbnail_url,
         is_active: is_active !== undefined ? (is_active === 'true' || is_active === true || is_active === 1) : product.is_active,
+        ...(featuredVal !== undefined ? { is_featured: featuredVal ? 1 : 0 } : {}),
       });
 
       res.json({
@@ -186,6 +205,33 @@ export const productController = {
         success: false,
         message: 'Gagal memperbarui produk',
       });
+    }
+  },
+
+  /** Admin: patch cepat is_featured / is_active (JSON) */
+  patchAdmin: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { is_featured, is_active } = req.body;
+      const product = await Product.findById(id);
+      if (!product) {
+        return res.status(404).json({ success: false, message: 'Produk tidak ditemukan' });
+      }
+      const updates = {};
+      if (is_featured !== undefined) {
+        updates.is_featured = is_featured === true || is_featured === 1 || is_featured === '1' || is_featured === 'true' ? 1 : 0;
+      }
+      if (is_active !== undefined) {
+        updates.is_active = is_active === true || is_active === 1 || is_active === '1' || is_active === 'true' ? 1 : 0;
+      }
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ success: false, message: 'Tidak ada field yang diperbarui' });
+      }
+      const updated = await Product.update(id, updates);
+      res.json({ success: true, message: 'Produk diperbarui', data: updated });
+    } catch (error) {
+      console.error('Patch product admin error:', error);
+      res.status(500).json({ success: false, message: 'Gagal memperbarui produk' });
     }
   },
 

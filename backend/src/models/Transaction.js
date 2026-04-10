@@ -10,12 +10,25 @@ export const Transaction = {
       final_amount = null,
       payment_method,
       midtrans_snap_token,
+      midtrans_transaction_id = null,
       status = 'pending',
+      notes = null,
     } = data;
     const [result] = await pool.execute(
-      `INSERT INTO transactions (user_id, order_id, gross_amount, discount_amount, final_amount, payment_method, midtrans_snap_token, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [user_id, order_id, gross_amount, discount_amount, final_amount, payment_method, midtrans_snap_token, status]
+      `INSERT INTO transactions (user_id, order_id, gross_amount, discount_amount, final_amount, payment_method, midtrans_snap_token, midtrans_transaction_id, status, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        user_id,
+        order_id,
+        gross_amount,
+        discount_amount,
+        final_amount,
+        payment_method,
+        midtrans_snap_token,
+        midtrans_transaction_id,
+        status,
+        notes,
+      ]
     );
     const insertId = result.insertId;
     const [rows] = await pool.execute('SELECT * FROM transactions WHERE id = ?', [insertId]);
@@ -60,12 +73,24 @@ export const Transaction = {
   },
 
   update: async (id, data) => {
-    const { status, midtrans_transaction_id, notes } = data;
+    const allowed = ['status', 'midtrans_transaction_id', 'midtrans_snap_token', 'notes'];
+    const fields = [];
+    const params = [];
+    for (const key of allowed) {
+      if (data[key] !== undefined) {
+        fields.push(`${key} = ?`);
+        params.push(data[key]);
+      }
+    }
+    if (fields.length === 0) {
+      const [rows] = await pool.execute('SELECT * FROM transactions WHERE id = ?', [id]);
+      return rows[0];
+    }
+    fields.push('updated_at = CURRENT_TIMESTAMP');
+    params.push(id);
     await pool.execute(
-      `UPDATE transactions 
-       SET status = ?, midtrans_transaction_id = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
-       WHERE id = ?`,
-      [status, midtrans_transaction_id, notes, id]
+      `UPDATE transactions SET ${fields.join(', ')} WHERE id = ?`,
+      params
     );
     const [rows] = await pool.execute('SELECT * FROM transactions WHERE id = ?', [id]);
     return rows[0];

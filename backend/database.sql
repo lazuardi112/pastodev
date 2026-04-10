@@ -56,11 +56,13 @@ CREATE TABLE IF NOT EXISTS products (
     discount_percent DECIMAL(5,2) DEFAULT 0, -- Diskon persen
     discount_price DECIMAL(15,2), -- Harga after discount
     file_url TEXT,
+    file_size INT NULL,
     thumbnail_url TEXT,
     views INT DEFAULT 0,
     downloads INT DEFAULT 0,
     share_link VARCHAR(500),
     is_active BOOLEAN DEFAULT true,
+    is_featured BOOLEAN DEFAULT false,
     created_by INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -161,8 +163,9 @@ CREATE TABLE IF NOT EXISTS custom_orders (
     order_number VARCHAR(50) UNIQUE NOT NULL,
     title VARCHAR(255) NOT NULL,
     description TEXT,
+    request_file_url TEXT NULL,
     budget DECIMAL(15,2),
-    status VARCHAR(50) DEFAULT 'pending', -- 'pending', 'diterima', 'ditolak', 'proses', 'selesai'
+    status VARCHAR(50) DEFAULT 'pending', -- pending, approved, rejected, processing, completed (+ legacy)
     payment_status VARCHAR(50) DEFAULT 'pending', -- 'pending', 'completed', 'failed'
     payment_link VARCHAR(500),
     result_file_url TEXT,
@@ -194,7 +197,8 @@ CREATE TABLE IF NOT EXISTS settings (
 CREATE TABLE IF NOT EXISTS notifications (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
-    type VARCHAR(50), -- 'payment_success', 'product_ready', 'order_update', etc
+    type VARCHAR(50), -- kategori: topup_success, purchase_failed, dll
+    level VARCHAR(20) DEFAULT 'info', -- success | error | info
     title VARCHAR(255) NOT NULL,
     message TEXT,
     is_read BOOLEAN DEFAULT false,
@@ -202,6 +206,24 @@ CREATE TABLE IF NOT EXISTS notifications (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+-- DB lama tanpa kolom level: jalankan sekali jika perlu
+-- ALTER TABLE notifications ADD COLUMN level VARCHAR(20) DEFAULT 'info' AFTER type;
+
+CREATE TABLE IF NOT EXISTS contact_info (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL DEFAULT 'Hubungi Kami',
+    description TEXT,
+    phone VARCHAR(64),
+    email VARCHAR(255),
+    address TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+INSERT INTO contact_info (title, description, phone, email, address)
+SELECT 'Hubungi Kami', 'Silakan hubungi tim kami untuk pertanyaan dan partnership.', '', 'support@pastodev.id', ''
+WHERE NOT EXISTS (SELECT 1 FROM contact_info LIMIT 1);
 
 -- Create indexes for better performance
 CREATE INDEX idx_users_email ON users(email);
@@ -221,15 +243,23 @@ CREATE INDEX idx_custom_order_messages_order ON custom_order_messages(custom_ord
 CREATE INDEX idx_notifications_user ON notifications(user_id);
 CREATE INDEX idx_notifications_read ON notifications(is_read);
 
--- Insert default admin user (password: ardigg12)
-INSERT IGNORE INTO users (name, email, password, role, is_active) 
+-- Admin default: email admin@pastopup.id | password: ardigg12
+-- ON DUPLICATE KEY UPDATE memperbarui password jika user sudah ada (INSERT IGNORE tidak pernah mengganti password lama).
+INSERT INTO users (name, email, password, role, is_active, is_blocked)
 VALUES (
     'Admin PastoDEV',
     'admin@pastopup.id',
     '$2a$10$PCQKVBw2C10xosV.rkZcUOsPeNdLeKLF4d2Ik2v5DDr7PkVPaVSnK',
     'admin',
-    true
-);
+    true,
+    false
+)
+ON DUPLICATE KEY UPDATE
+    password = VALUES(password),
+    name = VALUES(name),
+    role = VALUES(role),
+    is_active = VALUES(is_active),
+    is_blocked = VALUES(is_blocked);
 
 -- Insert default settings
 INSERT INTO settings (`key`, value, description) VALUES
@@ -242,5 +272,84 @@ INSERT INTO settings (`key`, value, description) VALUES
 ('landing_banner_description', 'Jual dan beli produk digital dengan aman dan terpercaya', 'Deskripsi banner'),
 ('fee_percentage', '2.5', 'Persentase fee platform'),
 ('min_topup', '10000', 'Minimum topup saldo'),
-('max_topup', '50000000', 'Maksimum topup saldo')
+('max_topup', '50000000', 'Maksimum topup saldo'),
+('theme_button_color', '#00acc2', 'Warna tombol'),
+('theme_background', '#f8fafc', 'Latar halaman'),
+('site_logo_url', '', 'URL logo (opsional)')
 ON DUPLICATE KEY UPDATE value = VALUES(value), description = VALUES(description);
+
+-- Database yang sudah ada (tanpa kolom file_size): jalankan sekali:
+-- ALTER TABLE products ADD COLUMN file_size INT NULL AFTER file_url;
+
+-- === Migrasi April 2026: orders produk, custom order payments/files ===
+
+CREATE TABLE IF NOT EXISTS orders (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    product_id INT NOT NULL,
+    quantity INT NOT NULL DEFAULT 1,
+    amount DECIMAL(15,2) NOT NULL,
+    status VARCHAR(32) NOT NULL DEFAULT 'pending',
+    transaction_id INT NULL,
+    midtrans_order_id VARCHAR(255) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+    FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_orders_user ON orders(user_id);
+CREATE INDEX idx_orders_transaction ON orders(transaction_id);
+CREATE INDEX idx_orders_status ON orders(status);
+
+CREATE TABLE IF NOT EXISTS custom_order_payments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    custom_order_id INT NOT NULL,
+    amount DECIMAL(15,2) NOT NULL,
+    status VARCHAR(32) NOT NULL DEFAULT 'pending',
+    midtrans_order_id VARCHAR(255) NOT NULL,
+    snap_token TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (custom_order_id) REFERENCES custom_orders(id) ON DELETE CASCADE,
+    UNIQUE KEY uq_midtrans_order (midtrans_order_id)
+);
+
+CREATE TABLE IF NOT EXISTS custom_order_files (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    custom_order_id INT NOT NULL,
+    file_url TEXT NOT NULL,
+    kind VARCHAR(32) DEFAULT 'result',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (custom_order_id) REFERENCES custom_orders(id) ON DELETE CASCADE
+);
+
+-- Database yang sudah jalan sebelum migrasi ini: jalankan sekali (abaikan error jika sudah ada):
+-- ALTER TABLE custom_orders ADD COLUMN request_file_url TEXT NULL;
+-- ALTER TABLE products ADD COLUMN is_featured BOOLEAN DEFAULT false AFTER is_active;
+
+CREATE TABLE IF NOT EXISTS testimonials (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    role VARCHAR(255) NULL,
+    comment TEXT NOT NULL,
+    avatar_initials VARCHAR(16) NULL,
+    rating TINYINT NOT NULL DEFAULT 5,
+    display_order INT NOT NULL DEFAULT 0,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_testimonials_active ON testimonials(is_active, display_order);
+
+INSERT INTO settings (`key`, value, description) VALUES
+('maintenance_mode', '0', '1 = situs maintenance untuk non-admin'),
+('maintenance_message', 'Kami sedang melakukan pemeliharaan. Silakan kembali lagi nanti.', 'Pesan maintenance'),
+('contact_whatsapp', '', 'Nomor WhatsApp (tanpa +62)'),
+('contact_email', 'support@pastodev.id', 'Email kontak'),
+('contact_phone', '', 'Telepon'),
+('contact_address', '', 'Alamat'),
+('contact_hours', 'Senin–Jumat 09:00–17:00 WIB', 'Jam operasional')
+ON DUPLICATE KEY UPDATE description = VALUES(description);

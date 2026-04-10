@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff, ArrowRight, Sparkles, Loader } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,8 +19,13 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  const { login: contextLogin } = useAuth();
+  const { login: contextLogin, setSession, user, loading: authLoading, isAdmin } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (authLoading || !user) return;
+    navigate(isAdmin ? "/post-login" : "/dashboard", { replace: true });
+  }, [user, authLoading, isAdmin, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,12 +55,25 @@ const Login = () => {
 
     try {
       if (isRegister) {
-        // Register
         const response = await authService.register({ name, email, password });
-        if (response.data?.data) {
-          toast({ title: "Registrasi berhasil! 🎉", description: "Silakan login dengan akun Anda" });
+        const payload = response.data?.data;
+        if (response.data?.success && payload?.token) {
+          setSession({
+            id: payload.id,
+            name: payload.name,
+            email: payload.email,
+            role: payload.role ?? "user",
+            balance: payload.balance,
+            token: payload.token,
+          });
+          toast({ title: "Registrasi berhasil", description: "Akun Anda sudah aktif." });
           setIsRegister(false);
-          setEmail("");
+          setName("");
+          setPassword("");
+          navigate(payload.role === "admin" ? "/post-login" : "/dashboard");
+        } else if (response.data?.success && payload) {
+          toast({ title: "Registrasi berhasil", description: "Silakan masuk dengan email Anda." });
+          setIsRegister(false);
           setPassword("");
           setName("");
         } else {
@@ -71,7 +89,7 @@ const Login = () => {
             const stored = localStorage.getItem("user");
             if (stored) {
               const userData = JSON.parse(stored);
-              navigate(userData.role === "admin" ? "/admin" : "/dashboard");
+              navigate(userData.role === "admin" ? "/post-login" : "/dashboard");
             }
           }, 500);
         } else {

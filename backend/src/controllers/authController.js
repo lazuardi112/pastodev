@@ -65,8 +65,8 @@ export const authController = {
         });
       }
 
-      const user = await User.findByEmail(email);
-      console.log('Login attempt for email:', email, 'User found:', !!user);
+      const emailNorm = String(email).trim().toLowerCase();
+      const user = await User.findByEmail(emailNorm);
 
       if (!user) {
         return res.status(401).json({
@@ -93,11 +93,14 @@ export const authController = {
         });
       }
 
-      const isPasswordValid = user.password && user.password.startsWith('$2')
-        ? await comparePassword(password, user.password)
-        : password === user.password;
+      if (!user.password) {
+        return res.status(401).json({
+          success: false,
+          message: 'Email atau password salah',
+        });
+      }
 
-      console.log('Password valid:', isPasswordValid);
+      const isPasswordValid = await comparePassword(password, user.password);
 
       if (!isPasswordValid) {
         return res.status(401).json({

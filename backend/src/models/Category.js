@@ -20,11 +20,10 @@ export const Category = {
 
   findById: async (id) => {
     const [rows] = await pool.execute(
-      `SELECT c.*, COUNT(DISTINCT sc.id) as sub_categories_count
+      `SELECT c.*,
+        (SELECT COUNT(*) FROM sub_categories sc WHERE sc.category_id = c.id) AS sub_categories_count
        FROM categories c
-       LEFT JOIN sub_categories sc ON c.id = sc.category_id
-       WHERE c.id = ?
-       GROUP BY c.id`,
+       WHERE c.id = ?`,
       [id]
     );
     return rows[0];

@@ -24,12 +24,11 @@
     --secondary: 210 40% 96%;
     --secondary-foreground: 222 47% 11%;
 
-    /* Muted: Blue-Grey Muted */
-    --muted: 210 40% 96%;
+    /* Muted / accent diselaraskan dengan primary teal (#00acc2) */
+    --muted: 187 28% 96%;
     --muted-foreground: 215 16% 47%;
 
-    /* Accent: Blue-Grey Accent */
-    --accent: 210 40% 94%;
+    --accent: 187 40% 94%;
     --accent-foreground: 222 47% 11%;
 
     --destructive: 0 84% 60%;

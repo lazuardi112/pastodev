@@ -1,5 +1,5 @@
 import express from 'express';
-import { authMiddleware } from '../middlewares/auth.js';
+import { authMiddleware, adminMiddleware } from '../middlewares/auth.js';
 import { customOrderController } from '../controllers/adminController.js';
 import { upload } from '../middlewares/upload.js';
 import {
@@ -13,6 +13,7 @@ const router = express.Router();
 router.post(
   '/',
   authMiddleware,
+  upload.single('file'),
   validateCustomOrder,
   handleValidationErrors,
   customOrderController.create
@@ -21,13 +22,17 @@ router.post(
 // Get my custom orders
 router.get('/my-orders', authMiddleware, customOrderController.getMyOrders);
 
+// Download hasil (ZIP) — harus sebelum /:orderId
+router.get('/download/:id', authMiddleware, customOrderController.downloadResult);
+
 // Get order detail
 router.get('/:orderId', authMiddleware, customOrderController.getDetail);
 
-// Update order status (admin only)
+// Update order status (admin only — was missing adminMiddleware)
 router.put(
   '/:orderId/status',
   authMiddleware,
+  adminMiddleware,
   customOrderController.updateStatus
 );
 

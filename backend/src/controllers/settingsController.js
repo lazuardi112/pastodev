@@ -1,14 +1,62 @@
 import { Settings, Notification } from '../models/Settings.js';
+import { User } from '../models/User.js';
+
+async function notifyAdminsSettingsChanged(keysLabel) {
+  try {
+    const ids = await User.getAdminIds();
+    const label = Array.isArray(keysLabel) ? keysLabel.join(', ') : String(keysLabel || '');
+    for (const uid of ids) {
+      await Notification.create({
+        user_id: uid,
+        type: 'settings_updated',
+        level: 'info',
+        title: 'Perubahan berhasil disimpan',
+        message: label ? `Pengaturan diperbarui: ${label}` : 'Pengaturan situs telah diperbarui.',
+        related_id: null,
+      });
+    }
+  } catch (e) {
+    console.error('notifyAdminsSettingsChanged', e);
+  }
+}
 
 export const settingsController = {
+  /** Tema & branding untuk frontend (tanpa auth). */
+  getPublicTheme: async (req, res) => {
+    try {
+      const keys = [
+        'theme_primary_color',
+        'theme_secondary_color',
+        'theme_button_color',
+        'theme_background',
+        'site_logo_url',
+        'site_title',
+      ];
+      const all = await Settings.getAll();
+      const data = {};
+      for (const k of keys) {
+        data[k] = all[k]?.value ?? null;
+      }
+      res.json({
+        success: true,
+        data,
+      });
+    } catch (error) {
+      console.error('Get public theme error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Gagal memuat tema',
+      });
+    }
+  },
+
   getAllSettings: async (req, res) => {
     try {
       const settings = await Settings.getAll();
-
       const settingsMap = {};
-      settings.forEach((setting) => {
-        settingsMap[setting.key] = setting.value;
-      });
+      for (const [key, meta] of Object.entries(settings)) {
+        settingsMap[key] = meta?.value ?? '';
+      }
 
       res.json({
         success: true,
@@ -53,7 +101,12 @@ export const settingsController = {
       const { key } = req.params;
       const { value, description } = req.body;
 
-      const setting = await Settings.update(key, value, description);
+      const setting =
+        description !== undefined && description !== ''
+          ? await Settings.set(key, value, description)
+          : await Settings.update(key, value);
+
+      notifyAdminsSettingsChanged([key]).catch(() => {});
 
       res.json({
         success: true,
@@ -74,10 +127,14 @@ export const settingsController = {
       const settings = req.body; // Expected: { key1: value1, key2: value2, ... }
 
       const updatedSettings = {};
+      const keys = [];
       for (const [key, value] of Object.entries(settings)) {
         const updated = await Settings.set(key, value);
         updatedSettings[key] = updated.value;
+        keys.push(key);
       }
+
+      notifyAdminsSettingsChanged(keys).catch(() => {});
 
       res.json({
         success: true,
@@ -89,6 +146,75 @@ export const settingsController = {
       res.status(500).json({
         success: false,
         message: 'Gagal memperbarui pengaturan',
+      });
+    }
+  },
+
+  /** Admin: kirim notifikasi in-app ke semua user atau satu user (kotak notifikasi di dashboard). */
+  sendBroadcast: async (req, res) => {
+    try {
+      const { title, message, send_to_all, user_id } = req.body;
+      const t = typeof title === 'string' ? title.trim() : '';
+      const m = typeof message === 'string' ? message.trim() : '';
+      if (!t || !m) {
+        return res.status(400).json({
+          success: false,
+          message: 'Judul dan pesan wajib diisi',
+        });
+      }
+
+      const all =
+        send_to_all === true ||
+        send_to_all === 'true' ||
+        send_to_all === 1 ||
+        send_to_all === '1';
+
+      let ids = [];
+      if (all) {
+        ids = await User.getAllUserIds();
+      } else {
+        const uid = Number(user_id);
+        if (!Number.isFinite(uid) || uid < 1) {
+          return res.status(400).json({
+            success: false,
+            message: 'Untuk satu pengguna, berikan user_id yang valid',
+          });
+        }
+        ids = [uid];
+      }
+
+      if (ids.length === 0) {
+        return res.json({
+          success: true,
+          message: 'Tidak ada penerima',
+          data: { count: 0 },
+        });
+      }
+
+      const type = 'admin_broadcast';
+      let sent = 0;
+      for (const uid of ids) {
+        await Notification.create({
+          user_id: uid,
+          type,
+          level: 'info',
+          title: t,
+          message: m,
+          related_id: null,
+        });
+        sent += 1;
+      }
+
+      res.json({
+        success: true,
+        message: `Notifikasi terkirim ke ${sent} pengguna`,
+        data: { count: sent },
+      });
+    } catch (error) {
+      console.error('Send broadcast notification error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Gagal mengirim notifikasi',
       });
     }
   },

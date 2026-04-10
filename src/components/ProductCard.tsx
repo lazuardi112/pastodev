@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { ShoppingCart, Star, Eye } from "lucide-react";
+import { mediaUrl } from "@/lib/media";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +12,7 @@ const ProductCard = ({ product }: { product: any }) => {
   const { addToCart } = useCart();
   
   // Handle both API and mock data formats
-  const thumbnail = product.thumbnail || product.thumbnail_url || '/placeholder.jpg';
+  const thumbnail = mediaUrl(product.thumbnail || product.thumbnail_url);
   const productSlug = product.slug || product.id;
 
   return (
@@ -24,7 +25,7 @@ const ProductCard = ({ product }: { product: any }) => {
           loading="lazy"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-        {product.featured && (
+        {product.featured === true && (
           <Badge className="absolute top-3 left-3 bg-primary text-primary-foreground shadow-lg shadow-primary/30 animate-scale-in">
             ⭐ Featured
           </Badge>

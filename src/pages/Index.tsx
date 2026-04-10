@@ -1,4 +1,6 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { ArrowRight, Code, Globe, Smartphone, Star, Zap, Shield, HeadphonesIcon, Sparkles, TrendingUp, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,6 +9,14 @@ import ProductCard from "@/components/ProductCard";
 import { categories, products, testimonials } from "@/data/mock";
 
 const Index = () => {
+  const { user, loading, isAdmin } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (loading || !user || isAdmin) return;
+    navigate("/dashboard", { replace: true });
+  }, [user, loading, isAdmin, navigate]);
+
   const featuredProducts = products.filter((p) => p.featured);
   const latestProducts = [...products].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 4);
   const categoryIcons = [Code, Globe, Smartphone];

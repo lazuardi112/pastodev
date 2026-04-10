@@ -1,10 +1,17 @@
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 import { Transaction } from '../models/Transaction.js';
 import { Voucher, BalanceHistory } from '../models/Voucher.js';
 import { User } from '../models/User.js';
 import { CustomOrder, CustomOrderMessage } from '../models/CustomOrder.js';
+import { CustomOrderPayment } from '../models/CustomOrderPayment.js';
 import { Settings, Notification } from '../models/Settings.js';
 import { generateCustomOrderNumber } from '../utils/helpers.js';
 import { snap } from '../config/midtrans.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export const adminController = {
   getDashboardStats: async (req, res) => {
@@ -108,7 +115,13 @@ export const adminController = {
         });
       }
 
-      const updatedUser = await User.toggleBlock(userId);
+      const updatedUser = await User.toggleBlock(parseInt(userId, 10));
+      if (!updatedUser) {
+        return res.status(404).json({
+          success: false,
+          message: 'Pengguna tidak ditemukan',
+        });
+      }
 
       // Create notification
       const action = updatedUser.is_blocked ? 'diblokir' : 'dibuka blokir';
@@ -154,12 +167,19 @@ export const adminController = {
         });
       }
 
-      const updatedUser = await User.adminAddBalance(
+      const updatedUser = await User.adminAdjustBalance(
         userId,
         parseFloat(amount),
         'admin_deposit',
         reason || 'Deposit dari admin'
       );
+
+      if (!updatedUser) {
+        return res.status(404).json({
+          success: false,
+          message: 'Pengguna tidak ditemukan',
+        });
+      }
 
       // Create notification
       await Notification.create({
@@ -204,19 +224,27 @@ export const adminController = {
         });
       }
 
-      if (user.balance < amount) {
+      const currentBal = Number(user.balance ?? 0);
+      if (currentBal < parseFloat(amount)) {
         return res.status(400).json({
           success: false,
           message: 'Saldo pengguna tidak cukup',
         });
       }
 
-      const updatedUser = await User.adminAddBalance(
+      const updatedUser = await User.adminAdjustBalance(
         userId,
         -parseFloat(amount),
         'admin_withdrawal',
         reason || 'Penarikan dari admin'
       );
+
+      if (!updatedUser) {
+        return res.status(404).json({
+          success: false,
+          message: 'Pengguna tidak ditemukan',
+        });
+      }
 
       // Create notification
       await Notification.create({
@@ -269,6 +297,85 @@ export const adminController = {
       res.status(500).json({
         success: false,
         message: 'Gagal mengambil detail pengguna',
+      });
+    }
+  },
+
+  updateUserAdmin: async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { name, email, phone, role, is_active, is_blocked } = req.body;
+
+      const existing = await User.findById(userId);
+      if (!existing) {
+        return res.status(404).json({
+          success: false,
+          message: 'Pengguna tidak ditemukan',
+        });
+      }
+
+      if (email && email !== existing.email) {
+        const clash = await User.findByEmailExcludingId(email, userId);
+        if (clash) {
+          return res.status(400).json({
+            success: false,
+            message: 'Email sudah digunakan pengguna lain',
+          });
+        }
+      }
+
+      const payload = {};
+      if (name !== undefined) payload.name = name;
+      if (email !== undefined) payload.email = email;
+      if (phone !== undefined) payload.phone = phone;
+      if (role !== undefined) payload.role = role;
+      if (is_active !== undefined) payload.is_active = is_active;
+      if (is_blocked !== undefined) payload.is_blocked = is_blocked;
+
+      const updated = await User.update(userId, payload);
+
+      res.json({
+        success: true,
+        message: 'Data pengguna diperbarui',
+        data: updated,
+      });
+    } catch (error) {
+      console.error('Update user admin error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Gagal memperbarui pengguna',
+      });
+    }
+  },
+
+  /** Nonaktifkan akun (soft delete; aman untuk FK). */
+  deactivateUser: async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const u = await User.findById(userId);
+      if (!u) {
+        return res.status(404).json({
+          success: false,
+          message: 'Pengguna tidak ditemukan',
+        });
+      }
+      if (u.role === 'admin') {
+        return res.status(400).json({
+          success: false,
+          message: 'Tidak dapat menonaktifkan akun admin',
+        });
+      }
+      const updated = await User.deactivate(userId);
+      res.json({
+        success: true,
+        message: 'Pengguna dinonaktifkan',
+        data: updated,
+      });
+    } catch (error) {
+      console.error('Deactivate user error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Gagal menonaktifkan pengguna',
       });
     }
   },
@@ -357,13 +464,17 @@ export const customOrderController = {
     try {
       const { title, description, budget } = req.body;
       const orderNumber = generateCustomOrderNumber();
+      const file = req.file;
+      const request_file_url = file ? `/uploads/${file.filename}` : null;
+      const safeTitle = (title && String(title).trim()) || 'Custom order';
 
       const customOrder = await CustomOrder.create({
         user_id: req.user.id,
         order_number: orderNumber,
-        title,
+        title: safeTitle,
         description,
         budget: parseFloat(budget),
+        request_file_url,
       });
 
       res.status(201).json({
@@ -377,6 +488,39 @@ export const customOrderController = {
         success: false,
         message: 'Gagal membuat custom order',
       });
+    }
+  },
+
+  downloadResult: async (req, res) => {
+    try {
+      const id = req.params.id;
+      const order = await CustomOrder.findById(id);
+      if (!order) {
+        return res.status(404).json({ success: false, message: 'Pesanan tidak ditemukan' });
+      }
+      if (Number(order.user_id) !== Number(req.user.id) && req.user.role !== 'admin') {
+        return res.status(403).json({ success: false, message: 'Akses ditolak' });
+      }
+      const paid =
+        String(order.payment_status || '').toLowerCase() === 'completed' ||
+        ['processing', 'completed', 'selesai', 'proses'].includes(String(order.status || '').toLowerCase());
+      if (!paid) {
+        return res.status(403).json({ success: false, message: 'Selesaikan pembayaran terlebih dahulu' });
+      }
+      const rel = order.result_file_url;
+      if (!rel) {
+        return res.status(404).json({ success: false, message: 'File hasil belum diunggah admin' });
+      }
+      const uploadDir = process.env.UPLOAD_DIR || path.join(__dirname, '../../uploads');
+      const name = rel.replace(/^\/uploads\//, '').replace(/^\//, '');
+      const filePath = path.join(uploadDir, name);
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ success: false, message: 'File tidak ditemukan di server' });
+      }
+      return res.download(filePath, `custom-order-${id}.zip`);
+    } catch (error) {
+      console.error('Download custom order error:', error);
+      return res.status(500).json({ success: false, message: 'Gagal mengunduh file' });
     }
   },
 
@@ -505,9 +649,10 @@ export const customOrderController = {
       await Notification.create({
         user_id: customOrder.user_id,
         type: 'custom_order_status',
+        level: 'info',
         title: notificationTitle,
         message: notificationMessage,
-        related_id: orderId,
+        related_id: Number(orderId) || null,
       });
 
       res.json({
@@ -536,6 +681,14 @@ export const customOrderController = {
         });
       }
 
+      const st = String(customOrder.status || '');
+      if (!['approved', 'diterima'].includes(st)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Setujui pesanan terlebih dahulu sebelum membuat invoice',
+        });
+      }
+
       if (customOrder.payment_status === 'completed') {
         return res.status(400).json({
           success: false,
@@ -543,23 +696,40 @@ export const customOrderController = {
         });
       }
 
+      if (!process.env.MIDTRANS_SERVER_KEY) {
+        return res.status(503).json({
+          success: false,
+          message: 'Midtrans belum dikonfigurasi',
+        });
+      }
+
       const user = await User.findById(customOrder.user_id);
+      const midtransOrderId = `CO-${customOrder.order_number}`;
+      const gross = Math.round(Number(customOrder.budget) || 0);
 
       const parameter = {
         transaction_details: {
-          order_id: `CO-${customOrder.order_number}`,
-          gross_amount: Math.round(customOrder.budget),
+          order_id: midtransOrderId,
+          gross_amount: gross,
         },
         customer_details: {
-          first_name: user.name,
+          first_name: user.name || 'Customer',
           email: user.email,
-          phone: user.phone,
+          phone: user.phone || '08123456789',
         },
+        payment_type: 'qris',
       };
 
       const transaction = await snap.createTransaction(parameter);
 
-      // Update custom order with payment link
+      await CustomOrderPayment.create({
+        custom_order_id: customOrder.id,
+        amount: customOrder.budget,
+        status: 'pending',
+        midtrans_order_id: midtransOrderId,
+        snap_token: transaction.token,
+      });
+
       const updatedOrder = await CustomOrder.update(orderId, {
         payment_link: transaction.redirect_url,
         payment_status: 'pending',
@@ -567,10 +737,12 @@ export const customOrderController = {
 
       res.json({
         success: true,
-        message: 'Link pembayaran berhasil dibuat',
+        message: 'Invoice pembayaran dibuat (QRIS)',
         data: {
           payment_link: transaction.redirect_url,
-          token: transaction.token,
+          snap_token: transaction.token,
+          order_id: midtransOrderId,
+          client_key: process.env.MIDTRANS_CLIENT_KEY || null,
           order: updatedOrder,
         },
       });
@@ -625,7 +797,7 @@ export const customOrderController = {
           type: 'custom_order_message',
           title: 'Pesan Baru dari Admin',
           message: `Admin mengirim pesan pada custom order ${order.order_number}`,
-          related_id: orderId,
+          related_id: Number(orderId) || null,
         });
       }
 

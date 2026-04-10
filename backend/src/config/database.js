@@ -5,12 +5,19 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import bcryptjs from 'bcryptjs';
+import { logger } from '../utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load env from backend/.env
+// Load env from backend/.env (same as server.js)
 dotenv.config({ path: path.join(__dirname, '../../.env') });
+
+const NODE_ENV = process.env.NODE_ENV || 'development';
+/** Production: never fall back to SQLite unless explicitly enabled. */
+const allowSqliteFallback =
+  process.env.DB_SQLITE_FALLBACK === 'true' ||
+  (NODE_ENV !== 'production' && process.env.DB_SQLITE_FALLBACK !== 'false');
 
 let pool;
 
@@ -302,17 +309,16 @@ const dbConfig = {
   connectTimeout: 10000,
 };
 
-console.log(`🗄️  Connecting to MySQL Database at ${dbConfig.host}...`);
+logger.info(`Connecting to MySQL at ${dbConfig.host}:${dbConfig.port} / ${dbConfig.database}`);
 
 try {
   const mysqlPool = mysql.createPool(dbConfig);
-  // Test connection
   const connection = await mysqlPool.getConnection();
   connection.release();
-  console.log('✅ MySQL database connection successful!');
+  logger.info('MySQL connection OK');
 
   pool = {
-    execute: (sql, params) => mysqlPool.execute(convertDollarToQuestion(sql), params),
+    execute: (sql, params) => mysqlPool.execute(convertDollarToQuestion(sql), params ?? []),
     query: async (sql, params = []) => {
       const [rows] = await mysqlPool.execute(convertDollarToQuestion(sql), params);
       return { rows };
@@ -320,24 +326,30 @@ try {
     getConnection: async () => {
       const conn = await mysqlPool.getConnection();
       return {
-        execute: (sql, params) => conn.execute(convertDollarToQuestion(sql), params),
+        execute: (sql, params) => conn.execute(convertDollarToQuestion(sql), params ?? []),
         beginTransaction: () => conn.beginTransaction(),
         commit: () => conn.commit(),
         rollback: () => conn.rollback(),
         release: () => conn.release(),
       };
-    }
+    },
   };
 } catch (error) {
-  console.error('❌ MySQL database connection failed:', error.message);
-  console.log('💡 Switching to SQLite database as fallback...');
+  logger.error('MySQL connection failed:', error.message);
+  if (!allowSqliteFallback) {
+    logger.error(
+      'SQLite fallback is disabled. Set DB credentials in backend/.env or set DB_SQLITE_FALLBACK=true for local fallback.'
+    );
+    process.exit(1);
+  }
+  logger.warn('Falling back to SQLite (development / DB_SQLITE_FALLBACK=true)');
   try {
     const dbPath = path.join(__dirname, '../../data/production.db');
     const db = initializeSQLiteDatabase(dbPath);
     pool = createSQLitePool(db);
-    console.log('✅ SQLite database initialized');
+    logger.info('SQLite initialized at', dbPath);
   } catch (sqliteError) {
-    console.error('❌ SQLite initialization failed:', sqliteError.message);
+    logger.error('SQLite initialization failed:', sqliteError.message);
     process.exit(1);
   }
 }

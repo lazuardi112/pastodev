@@ -1,21 +1,44 @@
 import pool from '../config/database.js';
+import { getInsertId } from '../utils/db.js';
 
 export const Voucher = {
   create: async (data) => {
-    const { code, description, discount_type, discount_value, min_purchase, max_discount, usage_limit, valid_from, valid_until } = data;
-    await pool.query(
+    const {
+      code,
+      description,
+      discount_type,
+      discount_value,
+      min_purchase,
+      max_discount,
+      usage_limit,
+      valid_from,
+      valid_until,
+    } = data;
+    const { rows: insertMeta } = await pool.query(
       `INSERT INTO vouchers (code, description, discount_type, discount_value, min_purchase, max_discount, usage_limit, valid_from, valid_until)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-      [code, description, discount_type, discount_value, min_purchase, max_discount, usage_limit, valid_from, valid_until]
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        code,
+        description ?? null,
+        discount_type,
+        discount_value,
+        min_purchase ?? null,
+        max_discount ?? null,
+        usage_limit ?? null,
+        valid_from ?? null,
+        valid_until ?? null,
+      ]
     );
-    const { rows } = await pool.query('SELECT * FROM vouchers ORDER BY id DESC LIMIT 1');
+    const insertId = getInsertId(insertMeta);
+    const { rows } = await pool.query('SELECT * FROM vouchers WHERE id = ?', [insertId]);
     return rows[0];
   },
 
   findByCode: async (code) => {
+    if (!code || typeof code !== 'string') return undefined;
     const { rows } = await pool.query(
       `SELECT * FROM vouchers 
-       WHERE code = $1 
+       WHERE code = ? 
        AND is_active = 1
        AND (valid_until IS NULL OR valid_until >= CURRENT_TIMESTAMP)`,
       [code.toUpperCase()]
@@ -27,65 +50,93 @@ export const Voucher = {
     const { rows } = await pool.query(
       `SELECT * FROM vouchers
        ORDER BY created_at DESC
-       LIMIT $1 OFFSET $2`,
+       LIMIT ? OFFSET ?`,
       [limit, offset]
     );
     return rows;
   },
 
   update: async (id, data) => {
+    const allowed = [
+      'code',
+      'description',
+      'discount_type',
+      'discount_value',
+      'min_purchase',
+      'max_discount',
+      'usage_limit',
+      'valid_from',
+      'valid_until',
+      'is_active',
+    ];
     const fields = [];
     const params = [];
-    let i = 1;
 
-    Object.keys(data).forEach(key => {
+    for (const key of allowed) {
       if (data[key] !== undefined) {
-        fields.push(`${key} = $${i++}`);
+        fields.push(`${key} = ?`);
         params.push(data[key]);
       }
-    });
+    }
 
-    if (fields.length === 0) return await pool.query('SELECT * FROM vouchers WHERE id = $1', [id]).then(r => r.rows[0]);
+    if (fields.length === 0) {
+      const { rows } = await pool.query('SELECT * FROM vouchers WHERE id = ?', [id]);
+      return rows[0];
+    }
 
+    fields.push('updated_at = CURRENT_TIMESTAMP');
     params.push(id);
-    await pool.query(
-      `UPDATE vouchers 
-       SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $${i}`,
-      params
-    );
-    const { rows } = await pool.query('SELECT * FROM vouchers WHERE id = $1', [id]);
+
+    await pool.query(`UPDATE vouchers SET ${fields.join(', ')} WHERE id = ?`, params);
+    const { rows } = await pool.query('SELECT * FROM vouchers WHERE id = ?', [id]);
     return rows[0];
   },
 
   delete: async (id) => {
-    await pool.query('DELETE FROM vouchers WHERE id = $1', [id]);
+    await pool.query('DELETE FROM vouchers WHERE id = ?', [id]);
     return { id };
   },
 
   incrementUsage: async (id) => {
-    await pool.query('UPDATE vouchers SET used_count = used_count + 1 WHERE id = $1', [id]);
+    await pool.query('UPDATE vouchers SET used_count = used_count + 1 WHERE id = ?', [id]);
   },
 };
 
 export const BalanceHistory = {
   create: async (data) => {
-    const { user_id, type, amount, description, balance_before, balance_after } = data;
-    await pool.query(
-      `INSERT INTO balance_history (user_id, type, amount, description, balance_before, balance_after)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [user_id, type, amount, description, balance_before, balance_after]
+    const {
+      user_id,
+      type,
+      amount,
+      description,
+      balance_before,
+      balance_after,
+      reference_id,
+    } = data;
+    const { rows: insertMeta } = await pool.query(
+      `INSERT INTO balance_history (user_id, type, amount, description, balance_before, balance_after, reference_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        user_id,
+        type,
+        amount,
+        description ?? null,
+        balance_before ?? null,
+        balance_after ?? null,
+        reference_id ?? null,
+      ]
     );
-    const { rows } = await pool.query('SELECT * FROM balance_history ORDER BY id DESC LIMIT 1');
+    const insertId = getInsertId(insertMeta);
+    const { rows } = await pool.query('SELECT * FROM balance_history WHERE id = ?', [insertId]);
     return rows[0];
   },
 
   getByUserId: async (userId, limit = 50, offset = 0) => {
     const { rows } = await pool.query(
       `SELECT * FROM balance_history
-       WHERE user_id = $1
+       WHERE user_id = ?
        ORDER BY created_at DESC
-       LIMIT $2 OFFSET $3`,
+       LIMIT ? OFFSET ?`,
       [userId, limit, offset]
     );
     return rows;

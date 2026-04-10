@@ -1,9 +1,11 @@
+import path from 'path';
 import { Cart, Review } from '../models/Cart.js';
 import { Transaction, TransactionItem } from '../models/Transaction.js';
 import { Voucher, BalanceHistory } from '../models/Voucher.js';
 import { Product } from '../models/Product.js';
 import { User } from '../models/User.js';
-import { snap } from '../config/midtrans.js';
+import { ProductOrder } from '../models/Order.js';
+import { chargeQris } from '../utils/midtransQris.js';
 import { generateOrderId, calculateDiscount } from '../utils/helpers.js';
 
 export const cartController = {
@@ -126,17 +128,18 @@ export const checkoutController = {
       }
 
       const originalTotal = cartItems.reduce((sum, item) => {
-        return sum + item.price * item.quantity;
+        return sum + Number(item.price) * Number(item.quantity);
       }, 0);
 
       let discount = 0;
       let voucherId = null;
       let finalAmount = originalTotal;
+      let notes = null;
 
       if (voucher_code) {
         const voucher = await Voucher.findByCode(voucher_code);
         if (voucher) {
-          if (originalTotal >= voucher.min_purchase) {
+          if (originalTotal >= (voucher.min_purchase ?? 0)) {
             discount = calculateDiscount(
               originalTotal,
               voucher.discount_type,
@@ -145,13 +148,15 @@ export const checkoutController = {
             );
             voucherId = voucher.id;
             finalAmount = originalTotal - discount;
+            notes = `voucher_id:${voucher.id}`;
           }
         }
       }
 
       if (payment_method === 'balance') {
         const user = await User.findById(req.user.id);
-        if (user.balance < finalAmount) {
+        const bal = Number(user?.balance ?? 0);
+        if (!Number.isFinite(bal) || bal < finalAmount) {
           return res.status(400).json({
             success: false,
             message: 'Insufficient balance',
@@ -167,20 +172,31 @@ export const checkoutController = {
           final_amount: finalAmount,
           payment_method: 'balance',
           status: 'success',
+          notes,
         });
 
         for (const item of cartItems) {
+          const line = Number(item.price) * Number(item.quantity);
           await TransactionItem.create({
             transaction_id: transaction.id,
             product_id: item.product_id,
             product_name: item.name,
-            price: item.price,
-            quantity: item.quantity,
-            subtotal: item.price * item.quantity,
+            price: Number(item.price),
+            quantity: Number(item.quantity),
+            subtotal: line,
+          });
+          await ProductOrder.create({
+            user_id: req.user.id,
+            product_id: item.product_id,
+            quantity: Number(item.quantity),
+            amount: line,
+            status: 'paid',
+            transaction_id: transaction.id,
+            midtrans_order_id: orderId,
           });
         }
 
-        const balanceBefore = user.balance;
+        const balanceBefore = bal;
         await User.updateBalance(req.user.id, -finalAmount);
 
         await BalanceHistory.create({
@@ -207,26 +223,33 @@ export const checkoutController = {
             order_id: orderId,
             amount: finalAmount,
             payment_method: 'balance',
+            redirect_rating: `/rating?transaction_id=${transaction.id}`,
           },
         });
       } else if (payment_method === 'midtrans_qris') {
         const orderId = generateOrderId();
         const user = await User.findById(req.user.id);
+        const acquirer = process.env.MIDTRANS_QRIS_ACQUIRER || 'gopay';
 
-        const transactionDetails = {
-          transaction_details: {
-            order_id: orderId,
-            gross_amount: Math.round(finalAmount),
-          },
-          customer_details: {
+        const itemDetails = cartItems.map((item) => ({
+          id: String(item.product_id),
+          price: Math.round(Number(item.price)),
+          quantity: Number(item.quantity),
+          name: String(item.name || 'Produk').slice(0, 50),
+        }));
+
+        const charged = await chargeQris({
+          orderId,
+          grossAmount: Math.round(finalAmount),
+          customerDetails: {
             email: user.email,
-            first_name: user.name,
-            phone: user.phone,
+            first_name: user.name || 'Customer',
+            phone: user.phone || '08123456789',
           },
-          payment_type: 'qris',
-        };
+          itemDetails,
+          acquirer,
+        });
 
-        const snapToken = await snap.createTransactionToken(transactionDetails);
         const transaction = await Transaction.create({
           user_id: req.user.id,
           order_id: orderId,
@@ -234,29 +257,44 @@ export const checkoutController = {
           discount_amount: discount,
           final_amount: finalAmount,
           payment_method: 'midtrans_qris',
-          midtrans_snap_token: snapToken,
+          midtrans_snap_token: null,
+          midtrans_transaction_id: charged.transaction_id,
           status: 'pending',
+          notes,
         });
 
         for (const item of cartItems) {
+          const line = Number(item.price) * Number(item.quantity);
           await TransactionItem.create({
             transaction_id: transaction.id,
             product_id: item.product_id,
             product_name: item.name,
-            price: item.price,
-            quantity: item.quantity,
-            subtotal: item.price * item.quantity,
+            price: Number(item.price),
+            quantity: Number(item.quantity),
+            subtotal: line,
+          });
+          await ProductOrder.create({
+            user_id: req.user.id,
+            product_id: item.product_id,
+            quantity: Number(item.quantity),
+            amount: line,
+            status: 'pending',
+            transaction_id: transaction.id,
+            midtrans_order_id: orderId,
           });
         }
 
         return res.status(201).json({
           success: true,
-          message: 'Payment token generated',
+          message: 'QRIS dibuat — scan untuk membayar',
           data: {
             transaction_id: transaction.id,
             order_id: orderId,
-            snap_token: snapToken,
+            qr_string: charged.qr_string,
+            expiry_time: charged.expiry_time,
+            midtrans_transaction_id: charged.transaction_id,
             amount: finalAmount,
+            acquirer,
           },
         });
       }
@@ -329,13 +367,28 @@ export const checkoutController = {
   downloadProduct: async (req, res) => {
     try {
       const { productId } = req.params;
+      const transactionId = req.query.transactionId ?? req.body?.transactionId;
+      if (!transactionId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Parameter transactionId wajib diisi',
+        });
+      }
 
-      // Check if user has purchased this product
-      const transaction = await Transaction.findById(req.body.transactionId);
-      if (!transaction || transaction.user_id !== req.user.id || transaction.status !== 'success') {
+      const transaction = await Transaction.findById(transactionId);
+      if (!transaction || Number(transaction.user_id) !== Number(req.user.id) || transaction.status !== 'success') {
         return res.status(403).json({
           success: false,
           message: 'Access denied',
+        });
+      }
+
+      const items = await TransactionItem.getByTransactionId(transactionId);
+      const ownsProduct = items.some((i) => String(i.product_id) === String(productId));
+      if (!ownsProduct) {
+        return res.status(403).json({
+          success: false,
+          message: 'Produk tidak termasuk transaksi ini',
         });
       }
 
@@ -347,8 +400,8 @@ export const checkoutController = {
         });
       }
 
-      // Serve the file
-      const filePath = `${process.env.UPLOAD_DIR || './uploads'}/${product.file_url.split('/').pop()}`;
+      const uploadDir = process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads');
+      const filePath = path.join(uploadDir, product.file_url.split('/').pop());
       res.download(filePath, product.name);
     } catch (error) {
       console.error('Download product error:', error);

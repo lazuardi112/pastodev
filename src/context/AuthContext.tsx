@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from "react";
 import { authService } from "@/services/api";
 
 export interface User {
@@ -7,6 +7,7 @@ export interface User {
   name: string;
   role: "user" | "admin";
   balance?: number;
+  phone?: string;
   avatar_url?: string;
   token?: string;
 }
@@ -15,6 +16,10 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
+  /** Simpan user + token setelah register (backend mengembalikan JWT). */
+  setSession: (userData: User) => void;
+  /** Sinkronkan nama/saldo/dll dari GET /api/auth/profile. */
+  refreshProfile: () => Promise<void>;
   logout: () => void;
   isAdmin: boolean;
   isAuthenticated: boolean;
@@ -24,6 +29,8 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: false,
   login: async () => false,
+  setSession: () => {},
+  refreshProfile: async () => {},
   logout: () => {},
   isAdmin: false,
   isAuthenticated: false,
@@ -54,38 +61,57 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       setLoading(true);
-      console.log("Attempting login for:", email);
       const response = await authService.login({ email, password });
-
-      console.log("Login response:", response.data);
 
       if (response.data?.success && response.data?.data) {
         const userData = response.data.data;
         const token = userData.token;
 
         if (!token) {
-          console.error("Login successful but no token received");
           return false;
         }
 
-        setUser(userData);
-        localStorage.setItem("user", JSON.stringify(userData));
-        localStorage.setItem("token", token);
-
-        console.log("Login success, user stored:", userData.email);
+        setSession(userData);
         return true;
       }
       return false;
     } catch (error: any) {
-      console.error("Login error detail:", error.response?.data || error.message);
       return false;
     } finally {
       setLoading(false);
     }
   };
 
+  const setSession = (userData: User) => {
+    if (userData.token) {
+      localStorage.setItem("token", userData.token);
+    }
+    localStorage.setItem("user", JSON.stringify(userData));
+    setUser(userData);
+  };
+
+  const refreshProfile = useCallback(async (): Promise<void> => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    try {
+      const { data } = await authService.getProfile();
+      if (data?.success && data?.data) {
+        const prevRaw = localStorage.getItem("user");
+        const prev = prevRaw ? (JSON.parse(prevRaw) as User) : ({} as User);
+        const merged: User = {
+          ...prev,
+          ...data.data,
+          token: prev.token ?? token,
+        };
+        localStorage.setItem("user", JSON.stringify(merged));
+        setUser(merged);
+      }
+    } catch {
+      /* abaikan */
+    }
+  }, []);
+
   const logout = () => {
-    console.log("Logging out user:", user?.email);
     setUser(null);
     localStorage.removeItem("user");
     localStorage.removeItem("token");
@@ -97,6 +123,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         user,
         loading,
         login,
+        setSession,
+        refreshProfile,
         logout,
         isAdmin: user?.role === "admin",
         isAuthenticated: !!user,

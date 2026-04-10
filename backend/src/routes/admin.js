@@ -3,6 +3,9 @@ import { authMiddleware, adminMiddleware } from '../middlewares/auth.js';
 import { adminController, voucherController, customOrderController } from '../controllers/adminController.js';
 import { settingsController, notificationController } from '../controllers/settingsController.js';
 import { midtransController } from '../controllers/paymentController.js';
+import { productController } from '../controllers/productController.js';
+import { testimonialController } from '../controllers/testimonialController.js';
+import { contactInfoController } from '../controllers/contactInfoController.js';
 import { upload } from '../middlewares/upload.js';
 import {
   validateVoucher,
@@ -22,6 +25,8 @@ router.put('/transactions/:transactionId/status', authMiddleware, adminMiddlewar
 // Admin User Management
 router.get('/users', authMiddleware, adminMiddleware, adminController.getUsers);
 router.get('/users/:userId', authMiddleware, adminMiddleware, adminController.getUserDetail);
+router.put('/users/:userId', authMiddleware, adminMiddleware, adminController.updateUserAdmin);
+router.delete('/users/:userId', authMiddleware, adminMiddleware, adminController.deactivateUser);
 router.put('/users/:userId/block', authMiddleware, adminMiddleware, adminController.toggleBlockUser);
 router.post('/users/:userId/balance/add', authMiddleware, adminMiddleware, adminController.addUserBalance);
 router.post('/users/:userId/balance/subtract', authMiddleware, adminMiddleware, adminController.subtractUserBalance);
@@ -52,13 +57,34 @@ router.get('/settings/:key', authMiddleware, adminMiddleware, settingsController
 router.put('/settings/:key', authMiddleware, adminMiddleware, settingsController.updateSetting);
 router.put('/settings/bulk/update', authMiddleware, adminMiddleware, settingsController.updateMultipleSettings);
 
-// Notifications
+// Notifications (POST broadcast harus sebelum :notificationId)
+router.post(
+  '/notifications/broadcast',
+  authMiddleware,
+  adminMiddleware,
+  settingsController.sendBroadcast
+);
 router.get('/notifications', authMiddleware, notificationController.getNotifications);
 router.get('/notifications/unread/count', authMiddleware, notificationController.getUnreadCount);
 router.put('/notifications/:notificationId/read', authMiddleware, notificationController.markAsRead);
 router.put('/notifications/read/all', authMiddleware, notificationController.markAllAsRead);
 router.delete('/notifications/:notificationId', authMiddleware, notificationController.deleteNotification);
 router.delete('/notifications/delete/all', authMiddleware, notificationController.deleteAllNotifications);
+
+// Produk — patch cepat unggulan / aktif
+router.patch('/products/:id', authMiddleware, adminMiddleware, productController.patchAdmin);
+
+// Testimoni (kelola beranda)
+router.get('/testimonials', authMiddleware, adminMiddleware, testimonialController.list);
+router.post('/testimonials', authMiddleware, adminMiddleware, testimonialController.create);
+router.put('/testimonials/:id', authMiddleware, adminMiddleware, testimonialController.update);
+router.delete('/testimonials/:id', authMiddleware, adminMiddleware, testimonialController.delete);
+
+// Hubungi kami (contact_info)
+router.get('/contact-info', authMiddleware, adminMiddleware, contactInfoController.listAdmin);
+router.post('/contact-info', authMiddleware, adminMiddleware, contactInfoController.create);
+router.put('/contact-info/:id', authMiddleware, adminMiddleware, contactInfoController.update);
+router.delete('/contact-info/:id', authMiddleware, adminMiddleware, contactInfoController.delete);
 
 // Midtrans Payment
 router.post('/midtrans/callback', midtransController.callback);

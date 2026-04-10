@@ -53,10 +53,11 @@ export const Settings = {
 export const Notification = {
   create: async (data) => {
     const { user_id, type, title, message, related_id } = data;
+    const level = ['success', 'error', 'info'].includes(data.level) ? data.level : 'info';
     const [result] = await pool.execute(
-      `INSERT INTO notifications (user_id, type, title, message, related_id)
-       VALUES (?, ?, ?, ?, ?)`,
-      [user_id, type, title, message, related_id]
+      `INSERT INTO notifications (user_id, type, level, title, message, related_id)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [user_id, type, level, title, message, related_id ?? null]
     );
     const insertId = result.insertId;
     const [rows] = await pool.execute(

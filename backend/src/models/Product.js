@@ -1,16 +1,18 @@
 import pool from '../config/database.js';
+import { getInsertId } from '../utils/db.js';
 
 export const Product = {
   create: async (data) => {
     const {
       category_id,
+      sub_category_id = null,
       name,
       slug,
       description,
       price,
       discount_percent = 0,
       file_url,
-      file_size,
+      file_size = null,
       thumbnail_url,
       created_by,
     } = data;
@@ -20,17 +22,47 @@ export const Product = {
         ? price * (1 - discount_percent / 100)
         : price;
 
-    await pool.query(
+    const is_featured = data.is_featured ? 1 : 0;
+
+    const { rows: insertMeta } = await pool.query(
       `INSERT INTO products (
-        category_id, name, slug, description, price, 
-        discount_percent, discount_price, file_url, file_size, 
-        thumbnail_url, created_by
-       )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-      [category_id, name, slug, description, price, discount_percent, discount_price, file_url, file_size, thumbnail_url, created_by]
+        category_id, sub_category_id, name, slug, description, price,
+        discount_percent, discount_price, file_url, file_size, thumbnail_url, is_featured, created_by
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        category_id,
+        sub_category_id,
+        name,
+        slug,
+        description,
+        price,
+        discount_percent,
+        discount_price,
+        file_url ?? null,
+        file_size ?? null,
+        thumbnail_url ?? null,
+        is_featured,
+        created_by,
+      ]
     );
 
-    const { rows } = await pool.query('SELECT * FROM products ORDER BY id DESC LIMIT 1');
+    const insertId = getInsertId(insertMeta);
+    let id = insertId;
+    if (!id) {
+      const { rows: last } = await pool.query(
+        'SELECT id FROM products WHERE created_by = ? ORDER BY id DESC LIMIT 1',
+        [created_by]
+      );
+      id = last[0]?.id ?? null;
+    }
+    const { rows } = await pool.query(
+      `SELECT p.*, c.name as category_name
+       FROM products p
+       LEFT JOIN categories c ON p.category_id = c.id
+       WHERE p.id = ?`,
+      [id]
+    );
     return rows[0];
   },
 
@@ -39,7 +71,7 @@ export const Product = {
       `SELECT p.*, c.name as category_name
        FROM products p
        LEFT JOIN categories c ON p.category_id = c.id
-       WHERE p.id = $1`,
+       WHERE p.id = ?`,
       [id]
     );
     return rows[0];
@@ -50,8 +82,9 @@ export const Product = {
       `SELECT p.*, c.name as category_name
        FROM products p
        LEFT JOIN categories c ON p.category_id = c.id
-       WHERE p.slug = $1`,
-      [slug]
+       WHERE p.slug = ? OR p.id = ?
+       LIMIT 1`,
+      [slug, /^\d+$/.test(String(slug)) ? parseInt(slug, 10) : -1]
     );
     return rows[0];
   },
@@ -62,6 +95,8 @@ export const Product = {
       search,
       limit = 20,
       offset = 0,
+      featured,
+      only_active,
     } = options;
 
     let query = `SELECT p.*, c.name as category_name
@@ -69,20 +104,27 @@ export const Product = {
                  LEFT JOIN categories c ON p.category_id = c.id
                  WHERE 1=1`;
     const params = [];
-    let i = 1;
+
+    if (only_active === true) {
+      query += ' AND p.is_active = 1';
+    }
+
+    if (featured) {
+      query += ' AND p.is_featured = 1';
+    }
 
     if (category_id) {
-      query += ` AND p.category_id = $${i++}`;
+      query += ' AND p.category_id = ?';
       params.push(category_id);
     }
 
     if (search) {
-      query += ` AND (p.name LIKE $${i} OR p.description LIKE $${i + 1})`;
-      params.push(`%${search}%`, `%${search}%`);
-      i += 2;
+      query += ' AND (p.name LIKE ? OR p.description LIKE ?)';
+      const term = `%${search}%`;
+      params.push(term, term);
     }
 
-    query += ` ORDER BY p.created_at DESC LIMIT $${i++} OFFSET $${i++}`;
+    query += ' ORDER BY p.created_at DESC LIMIT ? OFFSET ?';
     params.push(limit, offset);
 
     const { rows } = await pool.query(query, params);
@@ -94,46 +136,60 @@ export const Product = {
     const params = [];
 
     if (categoryId) {
-      query += ' AND category_id = $1';
+      query += ' AND category_id = ?';
       params.push(categoryId);
     }
 
     const { rows } = await pool.query(query, params);
-    return parseInt(rows[0].count);
+    return parseInt(rows[0]?.count ?? 0, 10);
   },
 
   update: async (id, data) => {
+    const allowed = [
+      'category_id',
+      'sub_category_id',
+      'name',
+      'slug',
+      'description',
+      'price',
+      'discount_percent',
+      'discount_price',
+      'file_url',
+      'file_size',
+      'thumbnail_url',
+      'share_link',
+      'is_active',
+      'is_featured',
+    ];
     const fields = [];
     const params = [];
-    let i = 1;
 
-    Object.keys(data).forEach(key => {
+    for (const key of allowed) {
       if (data[key] !== undefined) {
-        fields.push(`${key} = $${i++}`);
+        fields.push(`${key} = ?`);
         params.push(data[key]);
       }
-    });
+    }
 
     if (fields.length === 0) return await Product.findById(id);
 
+    fields.push('updated_at = CURRENT_TIMESTAMP');
     params.push(id);
-    await pool.query(
-      `UPDATE products SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = $${i}`,
-      params
-    );
+
+    await pool.query(`UPDATE products SET ${fields.join(', ')} WHERE id = ?`, params);
     return await Product.findById(id);
   },
 
   incrementViews: async (id) => {
-    await pool.query('UPDATE products SET views = views + 1 WHERE id = $1', [id]);
+    await pool.query('UPDATE products SET views = views + 1 WHERE id = ?', [id]);
   },
 
   incrementDownloads: async (id) => {
-    await pool.query('UPDATE products SET downloads = downloads + 1 WHERE id = $1', [id]);
+    await pool.query('UPDATE products SET downloads = downloads + 1 WHERE id = ?', [id]);
   },
 
   delete: async (id) => {
-    await pool.query('DELETE FROM products WHERE id = $1', [id]);
+    await pool.query('DELETE FROM products WHERE id = ?', [id]);
     return { id };
   },
 };

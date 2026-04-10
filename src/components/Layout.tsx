@@ -10,7 +10,7 @@ const Layout = ({ children, hideShell }: { children: ReactNode; hideShell?: bool
   const { isOpen, toggleChat } = useChat();
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
       {!hideShell && <Navbar />}
       <main className="flex-1">{children}</main>
       {!hideShell && <Footer />}

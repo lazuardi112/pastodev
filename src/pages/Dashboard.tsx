@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   User, ShoppingBag, Download, Wallet, Star, LogOut,
@@ -13,24 +13,100 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { formatCurrency } from "@/lib/format";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
-import { products } from "@/data/mock";
-import { useEffect } from "react";
 import ProductCard from "@/components/ProductCard";
+import {
+  authService,
+  productService,
+  categoryService,
+  checkoutService,
+  customOrderService,
+  userService,
+  paymentService,
+} from "@/services/api";
+import { useToast } from "@/hooks/use-toast";
+
+function mapTxUiStatus(raw: string | undefined): "pending" | "processing" | "success" {
+  const s = (raw || "").toLowerCase();
+  if (s === "success" || s === "settlement") return "success";
+  if (s === "pending") return "pending";
+  if (s === "failed" || s === "expire" || s === "cancel" || s === "canceled" || s === "cancelled" || s === "expired" || s === "deny") return "pending";
+  return "processing";
+}
 
 const Dashboard = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshProfile } = useAuth();
   const { totalItems } = useCart();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("home");
   const [searchQuery, setSearchQuery] = useState("");
   const [showNotif, setShowNotif] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [products, setProducts] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [customOrders, setCustomOrders] = useState<any[]>([]);
+  const [balanceRows, setBalanceRows] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [balance, setBalance] = useState(0);
+  const [catFilter, setCatFilter] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
 
   useEffect(() => {
     if (!user) navigate("/login");
   }, [user, navigate]);
+
+  const loadDashboard = useCallback(async () => {
+    if (!user?.id) return;
+    setLoading(true);
+    try {
+      const [balRes, prodRes, catRes, txRes, coRes, bhRes, nRes] = await Promise.all([
+        authService.getBalance(),
+        productService.getAll(catFilter ?? undefined, undefined, 40, 0),
+        categoryService.getAll(),
+        checkoutService.getTransactions(40, 0),
+        customOrderService.getMyOrders(25, 0),
+        authService.getBalanceHistory(40, 0),
+        userService.getNotifications(20, 0).catch(() => ({ data: { success: true, data: [] } })),
+      ]);
+
+      const balData = balRes.data?.data as { balance?: number } | undefined;
+      setBalance(Number(balData?.balance ?? user.balance ?? 0));
+
+      setProducts(prodRes.data?.data ?? []);
+      const c = catRes.data?.data;
+      setCategories(Array.isArray(c) ? c : []);
+
+      setTransactions(txRes.data?.data ?? []);
+      setCustomOrders(coRes.data?.data ?? []);
+      setBalanceRows(bhRes.data?.data ?? []);
+      setNotifications(nRes.data?.data ?? []);
+    } catch {
+      toast({ title: "Gagal memuat data", description: "Periksa koneksi ke API." });
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id, user?.balance, catFilter, toast]);
+
+  useEffect(() => {
+    if (user) refreshProfile();
+  }, [user?.id, refreshProfile]);
+
+  useEffect(() => {
+    if (user) {
+      setEditName(user.name || "");
+      setEditPhone(user.phone || "");
+    }
+  }, [user?.name, user?.phone, user?.id]);
+
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
 
   if (!user) return null;
 
@@ -39,40 +115,62 @@ const Dashboard = () => {
     navigate("/");
   };
 
-  // Filter products for store
-  const filteredProducts = products.filter(p =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredProducts = products.filter((p) =>
+    p.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Mock data
-  const myOrders = [
-    { id: "ORD-001", name: "BukaOlshop Pro", date: "15 Mar 2026", status: "success" as const, price: 250000, hasFile: true },
-    { id: "ORD-002", name: "Website Company Profile", date: "10 Mar 2026", status: "processing" as const, price: 500000, hasFile: false },
-    { id: "ORD-003", name: "Mobile POS App", date: "5 Mar 2026", status: "pending" as const, price: 750000, hasFile: false },
-  ];
+  const myOrders = transactions.map((t) => {
+    const first = t.items?.[0];
+    const ui = mapTxUiStatus(t.status);
+    return {
+      id: t.order_id || String(t.id),
+      name: first?.product_name || "Pembelian",
+      date: t.created_at ? new Date(t.created_at).toLocaleDateString("id-ID") : "",
+      status: ui,
+      price: Number(t.final_amount ?? t.gross_amount ?? 0),
+      hasFile: !!first?.product_id,
+      transactionId: t.id,
+      productId: first?.product_id,
+    };
+  });
 
-  const customOrders = [
-    { id: "TKT-001", title: "Aplikasi Kasir Custom", date: "12 Mar 2026", status: "success" as const, budget: "Rp 2.000.000", hasFile: true, lastMessage: "File sudah siap, silakan download" },
-    { id: "TKT-002", title: "Website Portofolio", date: "8 Mar 2026", status: "processing" as const, budget: "Rp 1.500.000", hasFile: false, lastMessage: "Sedang dikerjakan, estimasi 3 hari" },
-    { id: "TKT-003", title: "Landing Page Event", date: "1 Mar 2026", status: "pending" as const, budget: "Rp 800.000", hasFile: false, lastMessage: "Menunggu konfirmasi admin" },
-  ];
+  const customOrdersUi = customOrders.map((t) => ({
+    id: String(t.id),
+    title: t.title,
+    date: t.created_at ? new Date(t.created_at).toLocaleDateString("id-ID") : "",
+    status:
+      t.status === "selesai" ? ("success" as const) : t.status === "proses" ? ("processing" as const) : ("pending" as const),
+    budget: formatCurrency(Number(t.budget ?? 0)),
+    hasFile: !!t.result_file_url,
+    lastMessage: t.admin_notes || t.status || "—",
+  }));
 
-  const myDownloads = [
-    { name: "BukaOlshop Pro", version: "v2.1.0", size: "15 MB", date: "15 Mar 2026" },
-    { name: "Landing Page Template", version: "v1.3.0", size: "8 MB", date: "10 Mar 2026" },
-  ];
+  const myDownloads = transactions
+    .filter((t) => (t.status === "success" || t.status === "settlement") && Array.isArray(t.items))
+    .flatMap((t) =>
+      (t.items || []).map((it: any) => ({
+        name: it.product_name || "Produk",
+        version: "",
+        size: "",
+        date: t.created_at ? new Date(t.created_at).toLocaleDateString("id-ID") : "",
+        productId: it.product_id,
+        transactionId: t.id,
+      }))
+    )
+    .slice(0, 12);
 
-  const balanceHistory = [
-    { type: "Top Up", amount: "+Rp 100.000", date: "15 Mar 2026", positive: true },
-    { type: "Pembelian - BukaOlshop Pro", amount: "-Rp 250.000", date: "14 Mar 2026", positive: false },
-    { type: "Top Up", amount: "+Rp 300.000", date: "10 Mar 2026", positive: true },
-  ];
+  const balanceHistory = balanceRows.map((row) => ({
+    type: row.description || row.type || "Transaksi",
+    amount: `${Number(row.amount) >= 0 ? "+" : ""}${formatCurrency(Math.abs(Number(row.amount)))}`,
+    date: row.created_at ? new Date(row.created_at).toLocaleDateString("id-ID") : "",
+    positive: Number(row.amount) >= 0,
+  }));
 
-  const notifications = [
-    { text: "Pesanan ORD-001 telah selesai", time: "2 jam lalu", read: false },
-    { text: "File custom order TKT-001 sudah ready", time: "5 jam lalu", read: false },
-    { text: "Saldo berhasil ditambahkan Rp 100.000", time: "1 hari lalu", read: true },
-  ];
+  const notificationsUi = notifications.map((n) => ({
+    text: n.message || n.title || "",
+    time: n.created_at ? new Date(n.created_at).toLocaleString("id-ID") : "",
+    read: !!(n.is_read ?? n.isRead),
+  }));
 
   const statusConfig = {
     pending: { label: "Pending", color: "bg-amber-500/15 text-amber-600", icon: Clock },
@@ -142,12 +240,16 @@ const Dashboard = () => {
               </Button>
             </div>
             <div className="max-h-64 overflow-y-auto">
-              {notifications.map((n, i) => (
-                <div key={i} className={`p-3 border-b border-border/50 last:border-0 ${!n.read ? "bg-primary/5" : ""}`}>
-                  <p className="text-sm">{n.text}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{n.time}</p>
-                </div>
-              ))}
+              {notificationsUi.length === 0 ? (
+                <p className="p-3 text-sm text-muted-foreground">Tidak ada notifikasi</p>
+              ) : (
+                notificationsUi.map((n, i) => (
+                  <div key={i} className={`p-3 border-b border-border/50 last:border-0 ${!n.read ? "bg-primary/5" : ""}`}>
+                    <p className="text-sm">{n.text}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{n.time}</p>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         )}
@@ -172,10 +274,10 @@ const Dashboard = () => {
             {/* Stats Cards */}
             <div className="grid grid-cols-2 gap-3">
               {[
-                { label: "Saldo", value: formatCurrency(150000), icon: Wallet, color: "from-primary/20 to-primary/5" },
-                { label: "Pesanan", value: "3", icon: ShoppingBag, color: "from-emerald-500/20 to-emerald-500/5" },
-                { label: "Download", value: "5", icon: Download, color: "from-violet-500/20 to-violet-500/5" },
-                { label: "Review", value: "2", icon: Star, color: "from-amber-500/20 to-amber-500/5" },
+                { label: "Saldo", value: formatCurrency(balance), icon: Wallet, color: "from-primary/20 to-primary/5" },
+                { label: "Pesanan", value: String(myOrders.length), icon: ShoppingBag, color: "from-emerald-500/20 to-emerald-500/5" },
+                { label: "Download", value: String(myDownloads.length), icon: Download, color: "from-violet-500/20 to-violet-500/5" },
+                { label: "Custom", value: String(customOrdersUi.length), icon: Code, color: "from-amber-500/20 to-amber-500/5" },
               ].map((s) => (
                 <Card key={s.label} className="overflow-hidden border-border/50">
                   <CardContent className="p-3.5">
@@ -194,15 +296,24 @@ const Dashboard = () => {
               {[
                 { icon: Store, label: "Store", action: () => setActiveTab("store") },
                 { icon: Code, label: "Custom", action: () => setActiveTab("custom") },
-                { icon: CreditCard, label: "Top Up", action: () => setActiveTab("profile") },
+                { icon: CreditCard, label: "Top Up", action: () => {} },
                 { icon: MessageSquare, label: "Bantuan", action: () => {} },
               ].map((q) => (
-                <button key={q.label} onClick={q.action} className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-card border border-border/50 hover:border-primary/30 transition-colors">
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <q.icon className="h-5 w-5 text-primary" />
-                  </div>
-                  <span className="text-[11px] font-medium text-muted-foreground">{q.label}</span>
-                </button>
+                q.label === "Top Up" ? (
+                  <Link key={q.label} to="/topup" className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-card border border-border/50 hover:border-primary/30 transition-colors">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                      <q.icon className="h-5 w-5 text-primary" />
+                    </div>
+                    <span className="text-[11px] font-medium text-muted-foreground">{q.label}</span>
+                  </Link>
+                ) : (
+                  <button key={q.label} type="button" onClick={q.action} className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-card border border-border/50 hover:border-primary/30 transition-colors">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                      <q.icon className="h-5 w-5 text-primary" />
+                    </div>
+                    <span className="text-[11px] font-medium text-muted-foreground">{q.label}</span>
+                  </button>
+                )
               ))}
             </div>
 
@@ -256,7 +367,7 @@ const Dashboard = () => {
                 </button>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                {products.filter(p => p.featured).slice(0, 2).map(p => (
+                {products.slice(0, 4).map((p) => (
                   <ProductCard key={p.id} product={p} />
                 ))}
               </div>
@@ -284,9 +395,21 @@ const Dashboard = () => {
 
             {/* Categories quick scroll */}
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-              {["Semua", "Script BukaOlshop", "Website", "Aplikasi"].map((cat, i) => (
-                <button key={cat} className={`flex-shrink-0 px-4 py-2 rounded-full text-xs font-medium transition-colors ${i === 0 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
-                  {cat}
+              <button
+                type="button"
+                onClick={() => setCatFilter(null)}
+                className={`flex-shrink-0 px-4 py-2 rounded-full text-xs font-medium transition-colors ${catFilter === null ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+              >
+                Semua
+              </button>
+              {categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setCatFilter(Number(cat.id))}
+                  className={`flex-shrink-0 px-4 py-2 rounded-full text-xs font-medium transition-colors ${catFilter === cat.id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                >
+                  {cat.name}
                 </button>
               ))}
             </div>
@@ -412,7 +535,7 @@ const Dashboard = () => {
             </div>
 
             <div className="space-y-3">
-              {customOrders.map((t) => (
+              {customOrdersUi.map((t) => (
                 <Card key={t.id} className="border-border/50 overflow-hidden">
                   <CardContent className="p-0">
                     <div className="p-4">
@@ -423,7 +546,7 @@ const Dashboard = () => {
                         </div>
                         <StatusBadge status={t.status} />
                       </div>
-                      <p className="text-sm font-bold text-primary mt-2">{t.budget}</p>
+                      <p className="text-sm font-bold text-primary mt-2">{t.budget as string}</p>
                     </div>
 
                     {/* Chat preview */}
@@ -478,9 +601,35 @@ const Dashboard = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs text-muted-foreground">Saldo Anda</p>
-                    <p className="text-2xl font-bold text-primary">{formatCurrency(150000)}</p>
+                    <p className="text-2xl font-bold text-primary">{formatCurrency(balance)}</p>
                   </div>
-                  <Button size="sm" className="gap-1">
+                  <Button
+                    size="sm"
+                    className="gap-1"
+                    onClick={async () => {
+                      const raw = window.prompt("Nominal top up (minimal sesuai pengaturan)", "50000");
+                      if (!raw) return;
+                      const amt = Number(raw);
+                      if (!Number.isFinite(amt) || amt <= 0) {
+                        toast({ title: "Nominal tidak valid" });
+                        return;
+                      }
+                      try {
+                        const { data } = await paymentService.topup(amt);
+                        if (data?.success && data?.data?.snap_token) {
+                          toast({
+                            title: "Lanjutkan pembayaran",
+                            description: "Gunakan snap_token di client Midtrans (Snap.js) untuk menampilkan QRIS.",
+                          });
+                          await loadDashboard();
+                        } else {
+                          toast({ title: "Top up", description: data?.message || "Periksa konfigurasi Midtrans." });
+                        }
+                      } catch {
+                        toast({ title: "Top up gagal", description: "Pastikan Midtrans dikonfigurasi di backend." });
+                      }
+                    }}
+                  >
                     <Wallet className="h-4 w-4" /> Top Up
                   </Button>
                 </div>
@@ -507,55 +656,46 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Reviews */}
-            <div>
-              <h3 className="text-sm font-semibold mb-3">Review Saya</h3>
-              <div className="space-y-2">
-                {[
-                  { product: "BukaOlshop Pro", rating: 5, comment: "Produk sangat bagus, fitur lengkap!" },
-                  { product: "Landing Page Template", rating: 4, comment: "Desain clean dan mudah dikustomisasi" },
-                ].map((r) => (
-                  <Card key={r.product} className="border-border/50">
-                    <CardContent className="p-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <p className="text-sm font-medium">{r.product}</p>
-                        <div className="flex gap-0.5">
-                          {[...Array(5)].map((_, i) => (
-                            <Star key={i} className={`h-3 w-3 ${i < r.rating ? "fill-amber-500 text-amber-500" : "text-muted-foreground/30"}`} />
-                          ))}
-                        </div>
-                      </div>
-                      <p className="text-xs text-muted-foreground">{r.comment}</p>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-
-            {/* Profile Info */}
+            {/* Profile edit */}
             <div>
               <h3 className="text-sm font-semibold mb-3">Informasi Profil</h3>
               <Card className="border-border/50">
                 <CardContent className="p-4 space-y-3">
-                  {[
-                    { label: "Nama", value: user.name },
-                    { label: "Email", value: user.email },
-                    { label: "Bergabung", value: "Maret 2026" },
-                    { label: "Total Pembelian", value: "3 produk" },
-                  ].map((info) => (
-                    <div key={info.label} className="flex justify-between items-center">
-                      <span className="text-xs text-muted-foreground">{info.label}</span>
-                      <span className="text-sm font-medium">{info.value}</span>
-                    </div>
-                  ))}
+                  <div className="space-y-2">
+                    <Label htmlFor="dash-name" className="text-xs text-muted-foreground">
+                      Nama
+                    </Label>
+                    <Input id="dash-name" value={editName} onChange={(e) => setEditName(e.target.value)} className="rounded-xl h-10" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="dash-phone" className="text-xs text-muted-foreground">
+                      Telepon
+                    </Label>
+                    <Input id="dash-phone" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} className="rounded-xl h-10" />
+                  </div>
+                  <p className="text-xs text-muted-foreground">Email: {user.email}</p>
+                  <p className="text-xs text-muted-foreground">Total pembelian: {myOrders.filter((o) => o.status === "success").length} transaksi sukses</p>
                 </CardContent>
               </Card>
             </div>
 
             {/* Actions */}
             <div className="space-y-2">
-              <Button variant="outline" className="w-full gap-2 justify-start">
-                <Settings className="h-4 w-4" /> Edit Profil
+              <Button
+                variant="outline"
+                className="w-full gap-2 justify-start"
+                onClick={async () => {
+                  try {
+                    await authService.updateProfile({ name: editName, phone: editPhone });
+                    await refreshProfile();
+                    await loadDashboard();
+                    toast({ title: "Profil diperbarui" });
+                  } catch {
+                    toast({ title: "Gagal menyimpan profil" });
+                  }
+                }}
+              >
+                <Settings className="h-4 w-4" /> Simpan Profil
               </Button>
               <Button variant="outline" className="w-full gap-2 justify-start text-destructive hover:text-destructive" onClick={handleLogout}>
                 <LogOut className="h-4 w-4" /> Keluar
